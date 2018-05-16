@@ -18,30 +18,14 @@
 #define modulus(cpx)	(sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
 #define phase(cpx)		(atan2f((cpx)[1], (cpx)[0]))
 
-Player		p;	/**< The player struct. */
+Player	p;	/**< The player struct. */
+pevent evt;
 
 static pstate		mystate;	/**< State of the player. */
 static int		pos;		/**< Reproducing position. */
 static int 		v;		/**< Allegro voice associated to player. */
 static SAMPLE 		*orig_sample;	/**< Original Sample. */
 static SAMPLE 		*filt_sample;	/**< Filtered Sample. */
-
-struct filter{
-	float	gain;
-	float	lower_bound;
-	float	upper_bound;
-};
-
-/*
- * Set of filters that
- * implements the Band Equalizer
- */
-static struct filter filters[] = {
-				{ 1, 20, 500 },		/**< Low Frequencies. */
-				{ 1, 500, 2000 },	/**< Medium Frequencies. */
-				{ 1, 2000, 8000 },	/**< Medium-High Frequencies. */
-				{ 1, 8000, 16000 }	/**< High Frequencies. */
-};
 
 /******************************************************************************
  * Player Events
@@ -175,8 +159,8 @@ float		inbuff[PLAYER_WINDOW_SIZE];	/**< Need a buffer, cause create plan destroy
 
 static void IFFT(const fftwf_complex *in, float *out)
 {
-int			i;
-fftwf_plan		ift_p;			/**< Inverse f.t. configuration structure. */
+int		i;
+fftwf_plan	ift_p;				/**< Inverse f.t. configuration structure. */
 fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create plan destroy input data, */
 
 	ift_p = fftwf_plan_dft_c2r_1d(PLAYER_WINDOW_SIZE, inbuff, out,
@@ -221,14 +205,15 @@ int	i;
 
 static void update_spectogram()
 {
-int				i;
-int				ret;
-float			timedata[PLAYER_WINDOW_SIZE];
+int		i;
+int		ret;
+float		timedata[PLAYER_WINDOW_SIZE];
 fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
-static int		max = 0;
+static int	max = 0;
 
 	i = (pos - PLAYER_WINDOW_SIZE / 2 < 0) ? 0 : pos - PLAYER_WINDOW_SIZE / 2;
-	ret = sample_to_float((const SAMPLE *) orig_sample, timedata, i,
+	//ret = sample_to_float((const SAMPLE *) orig_sample, timedata, i, PLAYER_WINDOW_SIZE);
+	ret = sample_to_float((const SAMPLE *) filt_sample, timedata, i,
 			PLAYER_WINDOW_SIZE);
 	// zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
@@ -262,14 +247,19 @@ void print_spect()
 
 static void filt(fftwf_complex freqdata[])
 {
-int		j, k;
+int	j, k;
 float	mod, ph;
 
 	for (j = 0; j < PLAYER_WINDOW_SIZE_CPX; j++) {
-		for (k = 0; k < PLAYER_MAX_NFIL; k++) {
-			if ((j * p.freq_spacing) > filters[k].lower_bound
-					&& (j * p.freq_spacing) < filters[k].upper_bound) {
-				mod = modulus(freqdata[j]) * filters[k].gain;
+		for (k = 0; k < PLAYER_NFILT; k++) {
+			if ((j * p.freq_spacing) > p.equaliz[k].low_bnd
+					&& (j * p.freq_spacing) < p.equaliz[k].upp_bnd) {
+				/*
+				 * TO-DO:	the gain is given in dB
+				 		I have to find the link beetwen dB gain and the multiplication here;
+				 */
+				
+				mod = modulus(freqdata[j]) * (0.0417f *  p.equaliz[k].gain + 1);
 				ph = phase(freqdata[j]);
 				freqdata[j][0] = mod * cosf(ph);
 				freqdata[j][1] = mod * sinf(ph);
@@ -280,12 +270,12 @@ float	mod, ph;
 
 static void PlayerFilt()
 {
-int				i;
-int				ret;
-float			timedata[PLAYER_WINDOW_SIZE];
+int		i;
+int		ret;
+float		timedata[PLAYER_WINDOW_SIZE];
 fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
-SAMPLE			*new_filt_sample;
-char			start;
+SAMPLE		*new_filt_sample;
+char		start;
 
 	new_filt_sample = create_sample(orig_sample->bits, orig_sample->stereo,
 			orig_sample->freq, orig_sample->len);
@@ -338,11 +328,17 @@ void pinit(const char *path)
 	p.time = pos = 0;
 	get_trackname(p.trackname, path);
 	p.duration = ((float) (orig_sample->len / orig_sample->freq));
-	p.volume = 255;
 	memset(p.spectogram, 0, sizeof(p.spectogram));
 	p.dynamic_range = fabsf(20.0f * log10f(1.0f / (1 << orig_sample->bits)));
 	p.freq_spacing = ((float) orig_sample->freq) / PLAYER_WINDOW_SIZE;
-
+	p.volume = 255;
+	memcpy(p.equaliz,
+		(filter[4]){
+		{1, 20, 500},
+		{1, 500, 2000},
+		{1, 2000, 8000},
+		{1, 8000, 16000}},
+		sizeof(filter[4]));
 	// allocating the sample
 	v = allocate_voice(filt_sample);
 	if (v < 0)
@@ -350,10 +346,8 @@ void pinit(const char *path)
 	voice_set_playmode(v, PLAYMODE_PLAY);
 }
 
-void pdispatch(pevent evt)
+void pdispatch()
 {
-int	i;
-
 	if (voice_get_position(v) < 0 && mystate != STOP && mystate != PAUSE) {
 		PlayerStop();
 	}
@@ -380,17 +374,29 @@ int	i;
 		PlayerForward();
 		break;
 	case VOL_SIG:
-		voice_set_volume(v, evt.data.val);
+		voice_set_volume(v, (int) (evt.val * 2.55));
+		p.volume = (int) evt.val;
 		break;
-	case EQLZ_SIG:
-		for (i = 0; i < PLAYER_MAX_NFIL; i++){
-			filters[i].gain = evt.data.filt[i];
-		}
+	case FILTLOW_SIG:
+		p.equaliz[0].gain = evt.val;
+		PlayerFilt();
+		break;
+	case FILTMED_SIG:
+		p.equaliz[1].gain = evt.val;
+		PlayerFilt();
+		break;
+	case FILTMEDHIG_SIG:
+		p.equaliz[2].gain = evt.val;
+		PlayerFilt();
+		break;
+	case FILTHIG_SIG:
+		p.equaliz[3].gain = evt.val;
 		PlayerFilt();
 		break;
 	default:
 		break;
 	}
+	evt = (pevent) {0, 0};
 }
 
 static void PlayerStop()
