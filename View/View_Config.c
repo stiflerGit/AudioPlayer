@@ -8,13 +8,13 @@
 /*
  *	SPECTOGRAM PANEL
  */
-static img zoomout = { "/home/stefano/workspace/AudioPlayer/View/images/minus.bmp", NULL };
-static img zoomin  = { "/home/stefano/workspace/AudioPlayer/View/images/plus.bmp", NULL };
+static img zoomout = { "/home/stefano/Workspace/AudioPlayer/View/images/minus.bmp", NULL };
+static img zoomin  = { "/home/stefano/Workspace/AudioPlayer/View/images/plus.bmp", NULL };
 
 static Node	spect_nodes[SPECT_NNOD] = {
 	{ FRAME, SPECT_X, SPECT_Y, SPECT_W, SPECT_H, WHITE, BLACK, 0, NULL},
-	{ IMG, SPECT_X + 1, SPECT_Y + 1, SPECT_W * 0.05, SPECT_W * 0.05, WHITE, BLACK, 0, (void *) &zoomout},
-	{ IMG, SPECT_X + 2 + SPECT_W * 0.05, SPECT_Y + 1, SPECT_W * 0.05, SPECT_W * 0.05, WHITE, BLACK, 0 , (void *) &zoomin}
+	{ IMG, SPECT_X + 1, SPECT_Y + 1, SPECT_W * 0.05, SPECT_W * 0.05, BLACK, BLACK, 0, (void *) &zoomout},
+	{ IMG, SPECT_X + 2 + SPECT_W * 0.05, SPECT_Y + 1, SPECT_W * 0.05, SPECT_W * 0.05, BLACK, BLACK, 0 , (void *) &zoomin}
 };
 
 /*
@@ -37,11 +37,11 @@ static Node	eqlz_nodes[EQLZ_NNOD] = {
 	{BAR, EQLZ_X + EQLZ_W * 0.47, EQLZ_Y + 0.1 * EQLZ_H, EQLZ_W * 0.04, EQLZ_H * 0.5, WHITE, BLACK,  FILTMEDHIG_SIG, NULL},
 	{BAR, EQLZ_X + EQLZ_W * 0.64, EQLZ_Y + 0.1 * EQLZ_H, EQLZ_W * 0.04, EQLZ_H * 0.5, WHITE, BLACK,  FILTHIG_SIG, NULL},
 	{BAR, EQLZ_X + EQLZ_W * 0.89, EQLZ_Y + 0.1 * EQLZ_H, EQLZ_W * 0.04, EQLZ_H * 0.5, WHITE, BLACK,  VOL_SIG, NULL},
-	{LINE, EQLZ_X + EQLZ_W * 0.13, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 0, RED, WHITE,  0, NULL},
-	{LINE, EQLZ_X + EQLZ_W * 0.30,  EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 0, RED, WHITE,  0, NULL},
-	{LINE, EQLZ_X + EQLZ_W * 0.47, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 0, RED, WHITE,  0, NULL},
-	{LINE, EQLZ_X + EQLZ_W * 0.64, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 0, RED, WHITE,  0, NULL},
-	{LINE, EQLZ_X + EQLZ_W * 0.89, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 0, RED, WHITE,  0, NULL},
+	{BAR, EQLZ_X + EQLZ_W * 0.13, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 5, RED, WHITE,  0, NULL},
+	{BAR, EQLZ_X + EQLZ_W * 0.30,  EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 5, RED, WHITE,  0, NULL},
+	{BAR, EQLZ_X + EQLZ_W * 0.47, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 5, RED, WHITE,  0, NULL},
+	{BAR, EQLZ_X + EQLZ_W * 0.64, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 5, RED, WHITE,  0, NULL},
+	{BAR, EQLZ_X + EQLZ_W * 0.89, EQLZ_Y + 0.35 * EQLZ_H, 0.04 * EQLZ_W, 5, RED, WHITE,  0, NULL},
 	{TEXT, EQLZ_X + EQLZ_W * 0.15, EQLZ_Y + 0.82 * EQLZ_H, EQLZ_W / 5, EQLZ_H * 0.38, WHITE, BLACK, 0, (void *) &eq_lbl[0]},
 	{TEXT, EQLZ_X + EQLZ_W * 0.32, EQLZ_Y + 0.82 * EQLZ_H, EQLZ_W / 5, EQLZ_H * 0.38, WHITE, BLACK, 0, (void *) &eq_lbl[1]},
 	{TEXT, EQLZ_X + EQLZ_W * 0.49, EQLZ_Y + 0.82 * EQLZ_H, EQLZ_W / 5, EQLZ_H * 0.38, WHITE, BLACK, 0, (void *) &eq_lbl[2]},
@@ -65,11 +65,11 @@ static Node	title_nodes[TITLE_NNOD] = {
 #define CTRL_BW	(CTRL_W/CTRL_NBTN)
 
 static img	ctrl_btns[5] = {
-	{"/home/stefano/workspace/AudioPlayer/View/images/rewind.bmp", NULL},
-	{"/home/stefano/workspace/AudioPlayer/View/images/stop.bmp", NULL},
-	{"/home/stefano/workspace/AudioPlayer/View/images/pause.bmp", NULL},
-	{"/home/stefano/workspace/AudioPlayer/View/images/play.bmp", NULL},
-	{"/home/stefano/workspace/AudioPlayer/View/images/forward.bmp", NULL}
+	{"/home/stefano/Workspace/AudioPlayer/View/images/rewind.bmp", NULL},
+	{"/home/stefano/Workspace/AudioPlayer/View/images/stop.bmp", NULL},
+	{"/home/stefano/Workspace/AudioPlayer/View/images/pause.bmp", NULL},
+	{"/home/stefano/Workspace/AudioPlayer/View/images/play.bmp", NULL},
+	{"/home/stefano/Workspace/AudioPlayer/View/images/forward.bmp", NULL}
 };
 
 static Node	ctrl_nodes[CTRL_NNOD] = {
