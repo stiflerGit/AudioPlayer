@@ -7,7 +7,6 @@
 #define handle_error(e) \
 	do{ perror(e); exit(EXIT_FAILURE);} while(1);
 
-//static pstate old_state;	/**< Old Player State. */
 
 /* ********* Spectogram structure **************/
 #define		MAXZOOM		5
@@ -19,7 +18,7 @@ struct fspect_panel_t{
 }fspect_panel;
 /***********************************************/
 
-static Player	old_p;
+static Player	old_p;	/**< Previous player state. */
 
 static void print_f(float *buf, int size)
 {
@@ -63,20 +62,6 @@ int	i;
 	return 0;
 }
 
-void fspect_panel_clear()
-{
-int	nbar;
-int	i;
-
-	nbar = ZOOM_TO_BAR[fspect_panel.zoom];
-
-	for (i = 0; i < nbar; i++) 
-		g_clear(&fspect_panel.bars[i]);
-
-	g_clear(&(nodes[SPECT_PANEL][ZOOMIN_BTN]));
-	g_clear(&(nodes[SPECT_PANEL][ZOOMOUT_BTN]));
-}
-
 static float avg(float *v, int size)
 {
 int	i;
@@ -109,7 +94,13 @@ Node	*n;
 		return;
 	col = (delta < 0) ? n->fg : n->bg;
 //	printf("rectfill(screen, %d, %d, %d, %d, %X)\n",n->x, n->y, n->x + n->    w, n->y + delta, col);
+	scare_mouse();
 	rectfill(screen, n->x, n->y, n->x + n->w, n->y + delta, col);
+	if(is_inside(&nodes[SPECT_PANEL][ZOOMIN_BTN], n->x, n->y))
+		g_draw(&nodes[SPECT_PANEL][ZOOMIN_BTN]);
+	if(is_inside(&nodes[SPECT_PANEL][ZOOMOUT_BTN], n->x, n->y))
+		g_draw(&nodes[SPECT_PANEL][ZOOMOUT_BTN]);
+	unscare_mouse();
 	n->y += delta;
 	n->h = height;
 }
@@ -117,7 +108,6 @@ Node	*n;
 int fspect_panel_zoomin()
 {
 	if (fspect_panel.zoom <= MAXZOOM) {
-		fspect_panel_clear();
 		fspect_panel.zoom++;
 		fspect_panel_bars_init();
 		//fspect_panel_draw();
@@ -129,7 +119,6 @@ int fspect_panel_zoomin()
 int fspect_panel_zoomout()
 {
 	if (fspect_panel.zoom > 0) {
-		fspect_panel_clear();
 		fspect_panel.zoom--;
 		fspect_panel_bars_init();
 		//fspect_panel_draw();
@@ -157,6 +146,7 @@ text	*t;
 
 	t = (text *) nodes[TITLE_PANEL][TITLE_TXT].dp;
 	strcpy(t->str, p.trackname);
+	strcat(t->str, "       ");
 	g_draw(&nodes[TITLE_PANEL][TITLE_TXT]);
 }
 
@@ -184,49 +174,91 @@ static	int	step = 0;
  */
 static void highlight(Node *n)
 {
-int	x;
-
-	x = n->fg;
-	n->fg = n->bg;
-	n->bg = x;
+	if(n->fg == TSPRNT)
+		n->fg = RED;
+	else
+		n->fg = TSPRNT;
 	g_draw(n);
 }
 
-static void state()
+static void draw_state()
 {
+static int	step = 0;
+
+	if(old_p.state != p.state){
+		switch (old_p.state) {
+		case STOP:
+			highlight(&nodes[CTRL_PANEL][STOP_BTN]);
+			break;
+		case PLAY:
+			highlight(&nodes[CTRL_PANEL][PLAY_BTN]);
+			break;
+		case PAUSE:
+			highlight(&nodes[CTRL_PANEL][PAUSE_BTN]);
+			break;
+		case REWIND:
+			highlight(&nodes[CTRL_PANEL][RWND_BTN]);
+			break;
+		case FORWARD:
+			highlight(&nodes[CTRL_PANEL][FRWD_BTN]);
+			break;
+		default:
+			break;
+		}
+		switch (p.state) {
+		case STOP:
+			// stop button highlighted
+			highlight(&nodes[CTRL_PANEL][STOP_BTN]);
+			break;
+		case PLAY:
+			// play button highlighted
+			highlight(&nodes[CTRL_PANEL][PLAY_BTN]);
+			break;
+		case PAUSE:
+			// pause button highlighted
+			highlight(&nodes[CTRL_PANEL][PAUSE_BTN]);
+			break;
+		case REWIND:
+			// rewind button highlighted
+			highlight(&nodes[CTRL_PANEL][RWND_BTN]);
+			break;
+		case FORWARD:
+			// forward button highlighted
+			highlight(&nodes[CTRL_PANEL][FRWD_BTN]);
+			break;
+		default:
+			break;
+		}
+	}
+	step = (step + 1) % 30;
 	switch (p.state) {
-	case STOP:
-		// title is static
-		title_reset();
-		// stop button highlighted
-		highlight(&nodes[CTRL_PANEL][STOP_BTN]);
-		break;
-	case PLAY:
-		// title slide to the left
-		title_slide(1);
-		// play button highlighted
-		highlight(&nodes[CTRL_PANEL][PLAY_BTN]);
-		break;
-	case PAUSE:
-		// title stopped blinking
-		title_blink();
-		// pause button highlighted
-		highlight(&nodes[CTRL_PANEL][PAUSE_BTN]);
-		break;
-	case REWIND:
-		// title slide faster toward right
-		 title_slide(2);
-		// rewind button highlighted
-		highlight(&nodes[CTRL_PANEL][RWND_BTN]);
-		break;
-	case FORWARD:
-		// title slide faster towards left
-		title_slide(-2);
-		// forward button highlighted
-		highlight(&nodes[CTRL_PANEL][FRWD_BTN]);
-		break;
-	default:
-		break;
+		case STOP:
+			// title is static
+			title_reset();
+			break;
+		case PLAY:
+			// title slide to the left
+			if((step % 10) == 0)
+				title_slide(1);
+			break;
+		case PAUSE:
+			// title stopped blinking
+			if(step  == 0)
+				title_blink();
+			break;
+		case REWIND:
+			// title slide faster toward right
+			if((step % 10) == 0)
+				title_slide(-2);
+			break;
+		case FORWARD:
+			// title slide faster towards left
+			if((step % 10) == 0)
+				title_slide(2);
+			break;
+		default:
+			break;
+
 	}
 }
 
@@ -244,6 +276,7 @@ Node	*t;
 	
 	t = &nodes[TITLE_PANEL][TITLE_TXT];
 	strcpy(((text *)t->dp)->str, p.trackname);
+	strcat(((text *)t->dp)->str, "       ");
 
 	for(i = 0; i < NPANEL; i++){
 		for(j = 0; j < nodes_size[i]; j++){
@@ -255,6 +288,7 @@ Node	*t;
 	fspect_panel_bars_init();
 
 	memcpy(&old_p, &p, sizeof(Player));
+	highlight(&nodes[CTRL_PANEL][STOP_BTN]);
 
 	install_mouse();
 	show_mouse(screen);
@@ -269,11 +303,10 @@ int	i, j;
 int	nbv;
 int	spv;
 int	pix;
-char	upd;
 Node	*n;
 
 	// PLAYER STATE
-	state();
+	draw_state();
 	old_p.state = p.state;
 	// PLAYER TIME
 	if(old_p.time != p.time){
@@ -291,7 +324,6 @@ Node	*n;
 	// PLAYER SPECTOGRAM
 	nbv = ZOOM_TO_BAR[fspect_panel.zoom];
 	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
-	upd = 0;
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
 		if(old_p.spectogram[i] != p.spectogram[i]){
 			j = i / spv;
@@ -301,12 +333,7 @@ Node	*n;
 			else
 				memcpy(&old_p.spectogram[j * spv], &p.spectogram[j * spv], PLAYER_WINDOW_SIZE_CPX % nbv);
 			i = (j + 1) * spv;
-			upd = 1;
 		}
-	}
-	if(upd != 0){
-		g_draw(&(nodes[SPECT_PANEL][ZOOMIN_BTN]));
-		g_draw(&(nodes[SPECT_PANEL][ZOOMOUT_BTN]));
 	}
 	// PLAYER VOLUME
 	if(old_p.volume != p.volume){
@@ -327,38 +354,3 @@ Node	*n;
 		}
 	}
 }
-
-void view_exit() {
-	remove_sound();
-	allegro_exit();
-}
-
-/*
-int main() {
-	view_init();
-	//	test1();
-	printf("zoom:%d\n", 0);
-	for (int i = 1; i < FSPANEL_MAX_ZOOM + 1; i++) {
-		fspect_panel_zoomin(&fspect_panel);
-		printf("zoom:%d\n", i);
-		test2();
-		readkey();
-	}
-	for (int i = 6; i >= 0; i--) {
-		fspect_panel_zoomout(&fspect_panel);
-		printf("zoom:%d\n", i);
-		test2();
-		readkey();
-	}
-	readkey();
-	view_destroy();
-}
-*/
-/*
-int main()
-{
-	allegro_init();
-	view_init();
-	while(1){}
-}
-*/
