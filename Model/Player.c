@@ -16,16 +16,16 @@
 	do{ perror(s); exit(EXIT_FAILURE);} while(1)
 
 #define modulus(cpx)	(sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
-#define phase(cpx)		(atan2f((cpx)[1], (cpx)[0]))
+#define phase(cpx)	(atan2f((cpx)[1], (cpx)[0]))
 
 Player	p;	/**< The player struct. */
-pevent evt;
+pevent evt;	/**< The input event. */
 
-static pstate		mystate;	/**< State of the player. */
-static int		pos;		/**< Reproducing position. */
-static int 		v;		/**< Allegro voice associated to player. */
-static SAMPLE 		*orig_sample;	/**< Original Sample. */
-static SAMPLE 		*filt_sample;	/**< Filtered Sample. */
+static pstate	mystate;	/**< State of the player. */
+static int	pos;		/**< Reproducing position. */
+static int 	v;		/**< Allegro voice associated to player. */
+static SAMPLE 	*orig_sample;	/**< Original Sample. */
+static SAMPLE 	*filt_sample;	/**< Filtered Sample. */
 
 /******************************************************************************
  * Player Events
@@ -60,6 +60,7 @@ char	path_[256];
 			name_ = tok;
 			tok = strtok(NULL, "/");
 		}
+		//name = strtok(NULL, "\\.[a-z]*");
 		strcpy(name, name_);
 	}
 }
@@ -98,7 +99,7 @@ char	err[1024];
 
 static int sample_to_float(const SAMPLE *s, float *f, int i, int N)
 {
-int		j;		/**< sample data index */
+int	j;		/**< sample data index */
 int16_t	d16;	/**< buff to get the original signed value. */
 int8_t	d8;
 
@@ -116,7 +117,7 @@ int8_t	d8;
 
 static int float_to_sample(const float *f, SAMPLE *s, int i, int N)
 {
-int			j;		/**< sample data index */
+int		j;		/**< sample data index */
 uint16_t	d16;	/**< buff to get the original signed value. */
 
 	for (j = 0; j < N && (i + j) < s->len; j++) {
@@ -233,7 +234,7 @@ static int	max = 0;
 	// use maximum value to normalize power spectrum
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
 		p.spectogram[i] /= max;
-		p.spectogram[i] = 20.0f * log10f( p.spectogram[i]);
+		p.spectogram[i] = 20.0f * log10f(p.spectogram[i]);
 		p.spectogram[i] = (p.spectogram[i] + p.dynamic_range) / p.dynamic_range;
 		if(p.spectogram[i] < 0)	p.spectogram[i] = 0;
 		p.spectogram[i] = (int) (p.spectogram[i] * 100);
@@ -351,7 +352,7 @@ void pdispatch()
 	if (voice_get_position(v) < 0 && mystate != STOP && mystate != PAUSE) {
 		PlayerStop();
 	}
-	else{
+	else if(mystate != STOP && mystate != PAUSE){
 		pos = voice_get_position(v);
 		p.time = pos / orig_sample->freq;
 		update_spectogram();
@@ -376,6 +377,11 @@ void pdispatch()
 	case VOL_SIG:
 		voice_set_volume(v, (int) (evt.val * 2.55));
 		p.volume = (int) evt.val;
+		break;
+	case JUMP_SIG:
+		pos = evt.val * orig_sample->freq;
+		p.time = evt.val;
+		voice_set_position(v, pos);
 		break;
 	case FILTLOW_SIG:
 		p.equaliz[0].gain = evt.val;
@@ -450,8 +456,8 @@ static void PlayerRewind()
 		voice_set_position(v, pos);
 		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
 	}
-	else if (mystate == REWIND)
-		voice_set_frequency(v, 2 * voice_get_frequency(v));
+	//else if (mystate == REWIND)
+	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
 	if (mystate == PAUSE)
 		voice_start(v);
 	p.state = mystate = REWIND;
@@ -462,9 +468,9 @@ static void PlayerForward()
 	if (mystate != FORWARD){
 		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
 	}
-	else{
-		voice_set_frequency(v, 2 * voice_get_frequency(v));
-	}
+	//else{
+	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
+	//}
 	if (mystate == STOP || mystate == PAUSE){
 		voice_start(v);
 	}

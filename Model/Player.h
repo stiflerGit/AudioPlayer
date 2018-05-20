@@ -1,9 +1,3 @@
-/*
- * Player.h
- *
- *  Created on: May 7, 2017
- *      Author: stefano
- */
 #ifndef PLAYER_H_
 #define PLAYER_H_
 
