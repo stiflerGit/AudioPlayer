@@ -10,7 +10,7 @@
 static void g_draw_text(Node *n);
 static void g_draw_img(Node *n);
 
-static char is_inside(Node *n, int x, int y)
+char is_inside(Node *n, int x, int y)
 {
 	assert(n != NULL);
 	if(	x > n->x && x < n->x + n->w &&
@@ -22,6 +22,7 @@ static char is_inside(Node *n, int x, int y)
 void g_draw(Node *n)
 {
 	assert(n != NULL);
+	scare_mouse();
 	switch(n->type){
 	case LINE:
 		line(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
@@ -41,6 +42,7 @@ void g_draw(Node *n)
 	default:
 		break;
 	}
+	unscare_mouse();
 }
 
 static void g_draw_text(Node *n)
@@ -82,8 +84,12 @@ img	*me;
 			handle_error("load_bitmap");
 		}
 	}
-	if(n->fg != TSPRNT)
+	if(n->bg != TSPRNT){
 		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->bg);
+	}
+	if(n->fg != TSPRNT){
+		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
+	}
 	stretch_sprite(screen, me->_img, n->x, n->y, n->w, n->h);
 }
 

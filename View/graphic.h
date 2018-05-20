@@ -27,7 +27,8 @@ typedef struct {
 void g_draw(Node *n);
 void g_clear(Node *n);
 void g_stretch(Node *n, int x, int y, int width, int height);
-void g_move(Node *n, int x, int y);
+
+char is_inside(Node *n, int x, int y);
 
 // TEXT
 typedef enum  {
@@ -36,8 +37,8 @@ typedef enum  {
 	right
 }alignment;
 typedef struct {
-	alignment align;
-	char str[1024];
+	alignment 	align;
+	char 		str[1024];
 } text;
 
 // IMG
