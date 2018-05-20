@@ -20,16 +20,6 @@
 extern pevent	evt;
 
 static void control(Node* n, int x, int y);
-static char is_inside(Node *n, int x, int y);
-
-static char is_inside(Node *n, int x, int y)
-{
-	if( (x > n->x) && (x < (n->x + n->w))
-	 && (y > n->y) && (y < (n->y + n->h)) )
-	 	return 1;
-	return 0;
-
-}
 
 void controller()
 {
@@ -40,7 +30,7 @@ int	i, j;
 		pos = mouse_pos;
 		x = pos >> 16;
 		y = pos & 0x0000ffff;
-		printf("mouse button\tx: %d\tx: %d\n", x, y);
+		//printf("mouse button\tx: %d\tx: %d\n", x, y);
 		for(i = 0; i < NPANEL; i++){
 			if(is_inside(&(nodes[i][0]), x, y)){
 				for(j = 1; j < nodes_size[i]; j++){
@@ -76,6 +66,6 @@ int	perc;
 		break;
 	}
 	evt.sig = n->evt;
-	printf("node founded, event: {.sig = %d, .val = %f}\n", evt.sig, evt.val);
+	//printf("node founded, event: {.sig = %d, .val = %f}\n", evt.sig, evt.val);
 }
 
