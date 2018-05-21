@@ -47,7 +47,6 @@ int	i, j;
 
 static void control(Node* n, int x, int y)
 {
-int	perc;
 
 	switch(n->evt){
 	case JUMP_SIG:
