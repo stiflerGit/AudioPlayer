@@ -1,4 +1,4 @@
-#include "periodic_thread.h"
+#include "ptask.h"
 
 static void time_copy(struct timespec *td, struct timespec ts)
 {

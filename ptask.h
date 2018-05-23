@@ -1,3 +1,6 @@
+#ifndef PTASK_H_
+#define PTASK_H_
+
 #include <time.h>
 
 struct task_par {
@@ -14,3 +17,5 @@ struct task_par {
 void set_period(struct task_par *tp);
 int deadline_miss(struct task_par *tp);
 void wait_for_period(struct task_par *tp);
+
+#endif
