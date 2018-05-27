@@ -1,31 +1,40 @@
-/*
- * Player.c
+/**
+ * @file	Player.c
+ * @author	Stefano Fiori
+ * @date	26 May 2018
+ * @brief	Audio Player implementation as a FSM.
  *
- *  Created on: May 7, 2017
- *      Author: stefano
+ * This contains the implementation of an audio player with a band
+ * equalization and other functions. It is implemented as a FSM
+ * where events are dispatched to event-functions, it means each
+ * event as a function.
+ *
+ * @bug
  */
+#include "Player.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
 #include <math.h>
 #include <fftw3.h>
 #include <allegro.h>
-#include "Player.h"
+#include <assert.h>
 
 #define handle_error(s)	\
 	do{ perror(s); exit(EXIT_FAILURE);} while(1)
 
 #define modulus(cpx)	(sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
-#define phase(cpx)	(atan2f((cpx)[1], (cpx)[0]))
+#define phase(cpx)	(atan2f((cpx)[1], (cpx)[0])) 
 
 Player	p;	/**< The player struct. */
-pevent evt;	/**< The input event. */
+pevent	evt;	/**< The input event. */
 
-static pstate	mystate;	/**< State of the player. */
 static int	pos;		/**< Reproducing position. */
 static int 	v;		/**< Allegro voice associated to player. */
-static SAMPLE 	*orig_sample;	/**< Original Sample. */
-static SAMPLE 	*filt_sample;	/**< Filtered Sample. */
+static SAMPLE 	*orig_sample;	/**< Original Sample. Needed either for return
+				to original state or to filter (equalize). */
+static SAMPLE 	*filt_sample;	/**< Filtered Sample. This is the SAMPLE used for
+				sound reproduction.*/
 
 /******************************************************************************
  * Player Events
@@ -37,38 +46,40 @@ static void PlayerRewind();
 static void PlayerForward();
 //*****************************************************************************
 
-/******************************************************************************
- * Player Methods
- *****************************************************************************/
-void pprint(){
-	printf("trackname: %s\nvolume: %d\ntime %f\nduration %f\n",
-		p.trackname, p.volume, p.time, p.duration);
-	printf("dynamic range: %f\nfrequency spacing:%f\n", p.dynamic_range, p.freq_spacing);
-}
-//*****************************************************************************
-
+/**
+ * @brief	Obtain the file name given its path.
+ * @param[out]	name	where the file name is saved 
+ * @param[in]	path	absolute/relative path of the file
+ */
 static void get_trackname(char *name, const char *path)
 {
-char	*name_, *tok;
-char	path_[256];
+char	*tok;		/**< Token between "/" separator. */
+char	*ptok;		/**< Previous token. */
+char	path_[256];	/**< input path copy. */
 
 	if (path != NULL) {
 		strcpy(path_, path);
-		name_ = path_;
+		ptok = path_;
 		tok = strtok(path_, "/");
 		while (tok != NULL) {
-			name_ = tok;
-			tok = strtok(NULL, "/");
+			ptok = tok;
+			tok = strtok(NULL, "/.");
 		}
-		//name = strtok(NULL, "\\.[a-z]*");
-		strcpy(name, name_);
+		strcpy(name, ptok);
 	}
 }
 
+/**
+ * @brief	Load an audio file given its path.
+ *
+ * @param[in]	path	path of the audio file.
+ * @param[out]	s	pointer to the pointer where the adress of the SAMPLE
+ * 			struct returned by allegro lib is saved.
+ */
 static void algr_load_smpl(const char * path, SAMPLE **s)
 {
-char	pass;
-char	err[1024];
+char	pass;		/**< Audio file controls result. */
+char	err[1024];	/**< Error string. */
 
 	pass = 1;
 	*s = load_sample(path);
@@ -87,50 +98,72 @@ char	err[1024];
 		strcat(err, "too much frequency per seconds\n");
 		pass = 0;
 	}
-	if (pass) {
-		printf("bits: %d\nstereo: %d\nfreq: %d\nlen: %ld\n", (*s)->bits,
-				(*s)->stereo, (*s)->freq, (*s)->len);
-	} else {
+	if (pass == 0) {
 		destroy_sample(*s);
 		printf("%s\n", err);
 		exit(EXIT_FAILURE);
 	}
 }
 
-static int sample_to_float(const SAMPLE *s, float *f, int i, int N)
+/**
+ * @brief	Transform an Allegro SAMPLE piece of data to a machine float 
+ *		stream.
+ * @param[in]	s	address of the Allegro SAMPLE struct.
+ * @param[out]	buf	adress of the float stream.
+ * @param[in]	off	offset by which start to convert.
+ * @param[in]	count	no. data to convert.
+ * @ret			no. samples converted
+ */
+static int sample_to_float(const SAMPLE *s, float *buf, int off, int count)
 {
-int	j;		/**< sample data index */
-int16_t	d16;	/**< buff to get the original signed value. */
-int8_t	d8;
+int	j;	/**< sample data index */
+int16_t	d16;	/**< buff to get the original signed value for 16bit depth. */
+int8_t	d8;	/**< buff to get the original signed value for 8bit depth. */
 
-	for (j = 0; j < N && (i + j) < s->len; j++) {
+	for (j = 0; j < count && (off + j) < s->len; j++) {
 		if (s->bits == 16) {
-			d16 = le16toh(((int16_t *)(s->data))[i+j]) ^ 0x8000;
-			f[j] = (float) d16;
+			d16 = le16toh(((int16_t *)(s->data))[off+j]) ^ 0x8000;
+			buf[j] = (float) d16;
 		} else if (s->bits == 8) {
-			d8 = ((uint8_t *) (s->data))[i+j] ^ 0x80;
-			f[j] = (float) d8;
+			d8 = ((uint8_t *) (s->data))[off+j] ^ 0x80;
+			buf[j] = (float) d8;
 		}
 	}
 	return j;
 }
 
-static int float_to_sample(const float *f, SAMPLE *s, int i, int N)
+/**
+ * @brief	Transform a machine float stream to an Allegro SAMPLE piece of 
+ * 		data.
+ * @param[in]	buf	adress of the float stream.
+ * @param[out]	s	address of the Allegro SAMPLE struct.
+ * @param[in]	off	offset by which start to convert.
+ * @param[in]	count	no. data to convert.
+ * @ret			no. data converted.
+ */
+static int float_to_sample(const float *buf, SAMPLE *s, int off, int count)
 {
-int		j;		/**< sample data index */
+int		j;	/**< sample data index */
 uint16_t	d16;	/**< buff to get the original signed value. */
 
-	for (j = 0; j < N && (i + j) < s->len; j++) {
+	for (j = 0; j < count && (off + j) < s->len; j++) {
 		if (s->bits == 16) {
-			d16 = ((int16_t) round(f[j])) ^ 0x8000;
-			((uint16_t *) s->data)[i+j] = htole16(d16);
+			d16 = ((int16_t) round(buf[j])) ^ 0x8000;
+			((uint16_t *) s->data)[off+j] = htole16(d16);
 		} else if (s->bits == 8) {
-			((uint8_t *) s->data)[i+j] = ((uint8_t) round(f[j])) ^ 0x80;
+			((uint8_t *) s->data)[off+j] = 
+				((uint8_t) round(buf[j])) ^ 0x80;
 		}
 	}
 	return j;
 }
 
+/**
+ * @brief 	Blackman-Harris: window function that provides a far better
+ *		frequency isolation in the frequency domain.
+ * @param[in]	n	no. the sample in the window.
+ * @ret			the value computed.
+ */
 static float blackman_harris(int n)
 {
 const float	a0 = 0.35875f;
@@ -146,10 +179,18 @@ float		wn;
 	return wn;
 }
 
+/**
+ * @brief	Compute the Fast Fourier Transrmation of a fixed size float 
+ *		buffer. It means only real data in input.
+ * @param[in]	input float buffer. Size: PLAYER_WINDOW_SIZE.
+ * @param[out]	buffer composed by complex data. Size: PLAYER_WINDOW_SIZE / 2;
+ */
 static void FFT(const float *in, fftwf_complex *out)
 {
-fftwf_plan	dft_p;				/**< Direct f.t. configuration structure. */
-float		inbuff[PLAYER_WINDOW_SIZE];	/**< Need a buffer, cause create plan destroy input data, */
+fftwf_plan	dft_p;				/**< Direct f.t. configuration 
+						structure. */
+float		inbuff[PLAYER_WINDOW_SIZE];	/**< Need a buffer, cause create
+						plan destroy input data, */
 
 	dft_p = fftwf_plan_dft_r2c_1d(PLAYER_WINDOW_SIZE, inbuff, out,
 			FFTW_ESTIMATE);
@@ -158,11 +199,19 @@ float		inbuff[PLAYER_WINDOW_SIZE];	/**< Need a buffer, cause create plan destroy
 	fftwf_destroy_plan(dft_p);
 }
 
+/**
+ * @brief	Compute the Inverse Fast Fourier Transrmation of a fixed size
+ *		complex data buffer.
+ * @param[in]	input complex data buffer. Size: PLAYER_WINDOW_SIZE / 2.
+ * @param[out]	float buffer. Size: PLAYER_WINDOW_SIZE;
+ */
 static void IFFT(const fftwf_complex *in, float *out)
 {
 int		i;
-fftwf_plan	ift_p;				/**< Inverse f.t. configuration structure. */
-fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create plan destroy input data, */
+fftwf_plan	ift_p;				/**< Inverse f.t. configuration
+						structure. */
+fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create 
+						plan destroy input data, */
 
 	ift_p = fftwf_plan_dft_c2r_1d(PLAYER_WINDOW_SIZE, inbuff, out,
 			FFTW_ESTIMATE);
@@ -174,93 +223,92 @@ fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create p
 	fftwf_destroy_plan(ift_p);
 }
 
-void print_sample(SAMPLE *s)
-{
-unsigned char	b[2];
-
-	for (int i = 0; i < s->len; i++) {
-		printf("===== sample %d =====\n", i);
-		if (s->bits == 16) {
-			b[1] = (unsigned char) ((uint16_t *) s->data)[i];
-			b[0] = (unsigned char) (((uint16_t *) s->data)[i] >> 8);
-			printf("%d\t%d\n", b[1], b[0]);
-		} else {
-			b[0] = ((char *) s->data)[i];
-			printf("%d\n", b[0]);
-		}
-	}
-}
-
-void print_fbuff(const float *buff, unsigned int N)
-{
-int	i;
-
-	printf("const float buff[%d] = {", N);
-	for (i = 0; i < N - 1; i++) {
-		if (i % 5 == 0)
-			printf("\n");
-		printf("%d,\t", (int) buff[i]);
-	}
-	printf("%d\n}\n", (int) buff[N - 1]);
-}
-
+/**
+ * @brief	Update the player spectogram according to the current playing
+ *		position. 
+ */
 static void update_spectogram()
 {
-int		i;
-int		ret;
-float		timedata[PLAYER_WINDOW_SIZE];
-fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
-static int	max = 0;
+int		i;					/**< Array index. */
+int		ret;					/**< Returned values. */
+float		timedata[PLAYER_WINDOW_SIZE];		/**< Sample Timedata 
+							buff. */
+fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];	/**< Frequency data buff
+							. */
+static int	max = 0;				/**< Maximum value step 
+							by step. */
 
-	i = (pos - PLAYER_WINDOW_SIZE / 2 < 0) ? 0 : pos - PLAYER_WINDOW_SIZE / 2;
-	//ret = sample_to_float((const SAMPLE *) orig_sample, timedata, i, PLAYER_WINDOW_SIZE);
+	i = (pos < PLAYER_WINDOW_SIZE / 2) ? 0 : pos - PLAYER_WINDOW_SIZE / 2;
+
 	ret = sample_to_float((const SAMPLE *) filt_sample, timedata, i,
 			PLAYER_WINDOW_SIZE);
 	// zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
 		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
 	// apply blackman harris window f. to better isolate frequency
-	for(i = 0; i < PLAYER_WINDOW_SIZE; i++){
+	for(i = 0; i < PLAYER_WINDOW_SIZE; i++)
 		timedata[i] *= blackman_harris(i);
-	}
 
 	FFT(timedata, freqdata);
-	// compute magnitude and find the maximum value
+	// calculate magnitude, euclidean distance of the real and imaginary 
+	// parts and find the maximum value since last time the update_sp has 
+	// been called
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
 		p.spectogram[i] = modulus(freqdata[i]);
 		if(p.spectogram[i] > max)
 			max = p.spectogram[i];
 	}
-	// use maximum value to normalize power spectrum
+	// normalize values in a [0-100] range
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
 		p.spectogram[i] /= max;
+		// Human ear hears using a logarithmic scale.
+		// This operation converts values to decibel scale.
+		// Values are between [-inf, 0];
 		p.spectogram[i] = 20.0f * log10f(p.spectogram[i]);
-		p.spectogram[i] = (p.spectogram[i] + p.dynamic_range) / p.dynamic_range;
-		if(p.spectogram[i] < 0)	p.spectogram[i] = 0;
+		/*
+		 * Take the values we've got from the dB calculation above. 
+		 * Add dynamic range value to it. Divide by that same value 
+		 * and nowhave a value ranging from -infinity to 1.0f.
+		 */
+		p.spectogram[i] = (p.spectogram[i] + p.dynamic_range) 
+			/ p.dynamic_range;
+		// Clamp the lower end to 0 and you now have a range from 0 to 1
+		if(p.spectogram[i] < 0) p.spectogram[i] = 0;
+		// multiply that by 100 and obtain a final 0 to 100 range.
 		p.spectogram[i] = (int) (p.spectogram[i] * 100);
 	}
 }
 
+/**
+ * @brief	Debug scope only
+ */
 void print_spect()
 {
 	print_fbuff(p.spectogram, PLAYER_WINDOW_SIZE_CPX);
 }
 
+/**
+ * @brief	filter complex data depending on actual filters values
+ * @param[inout]	freqdata	complex data buffer of fixed 
+ * 					PLAYER_WINDOW_SIZE size
+ */
 static void filt(fftwf_complex freqdata[])
 {
-int	j, k;
-float	mod, ph;
+int	j, k;		/**<Array indexes. */
+float	mod, ph;	/**<.Module and Phase */
 
 	for (j = 0; j < PLAYER_WINDOW_SIZE_CPX; j++) {
 		for (k = 0; k < PLAYER_NFILT; k++) {
 			if ((j * p.freq_spacing) > p.equaliz[k].low_bnd
-					&& (j * p.freq_spacing) < p.equaliz[k].upp_bnd) {
-				/*
+			&& (j * p.freq_spacing) < p.equaliz[k].upp_bnd) {
+				/**
 				 * TO-DO:	the gain is given in dB
-				 		I have to find the link beetwen dB gain and the multiplication here;
+				 *		I have to find the link beetwen
+				 *		dB gain and the multiplication 
+				 *		here;
 				 */
-				
-				mod = modulus(freqdata[j]) * (0.0417f *  p.equaliz[k].gain + 1);
+				mod = modulus(freqdata[j]) * 
+					(0.0417f *  p.equaliz[k].gain + 1);
 				ph = phase(freqdata[j]);
 				freqdata[j][0] = mod * cosf(ph);
 				freqdata[j][1] = mod * sinf(ph);
@@ -269,6 +317,9 @@ float	mod, ph;
 	}
 }
 
+/**
+ * @brief	Function that manage the FILT_SIG event.
+ */
 static void PlayerFilt()
 {
 int		i;
@@ -282,7 +333,7 @@ char		start;
 			orig_sample->freq, orig_sample->len);
 
 	/*
-	 * first window is bigger than all the others
+	 * first window is bigger than all the others ( 3/4 * WINDOWS_SIZE)
 	 */
 	ret = sample_to_float((const SAMPLE *) orig_sample, timedata, 0,
 			PLAYER_WINDOW_SIZE);
@@ -292,8 +343,7 @@ char		start;
 	filt(freqdata);
 	IFFT(freqdata, timedata);
 	float_to_sample((const float *) timedata, new_filt_sample, 0,
-			3 * (PLAYER_WINDOW_SIZE / 4));
-
+			3 * PLAYER_WINDOW_SIZE / 4);
 
 	for (i = 1; i < 2 * (filt_sample->len / PLAYER_WINDOW_SIZE); i++) {
 		ret = sample_to_float((const SAMPLE *) orig_sample, timedata,
@@ -303,9 +353,10 @@ char		start;
 		FFT(timedata, freqdata);
 		filt(freqdata);
 		IFFT(freqdata, timedata);
-		float_to_sample((const float *) &timedata[PLAYER_WINDOW_SIZE/4], new_filt_sample,
-				(i * (PLAYER_WINDOW_SIZE / 2)) + PLAYER_WINDOW_SIZE / 4,
-				PLAYER_WINDOW_SIZE / 2);
+		float_to_sample((const float *) &timedata[PLAYER_WINDOW_SIZE/4], 
+			new_filt_sample, 
+			(i * (PLAYER_WINDOW_SIZE / 2)) + PLAYER_WINDOW_SIZE / 4,
+			PLAYER_WINDOW_SIZE / 2);
 	}
 
 	start = 0;
@@ -319,18 +370,23 @@ char		start;
 		voice_start(v);
 }
 
-
+/**
+ * @brief	initialize the player internal and external variable.
+ * @param[in]	path	path of the input song.
+ */
 void pinit(const char *path)
 {
 	algr_load_smpl(path, &orig_sample);
 	algr_load_smpl(path, &filt_sample);
 
-	p.state = mystate = STOP;
+	p.state = STOP;
 	p.time = pos = 0;
 	get_trackname(p.trackname, path);
 	p.duration = ((float) (orig_sample->len / orig_sample->freq));
 	memset(p.spectogram, 0, sizeof(p.spectogram));
-	p.dynamic_range = fabsf(20.0f * log10f(1.0f / (1 << orig_sample->bits)));
+	p.dynamic_range = 
+		fabsf(20.0f * log10f(1.0f / (1 << orig_sample->bits)));
+	printf("DYNAMIC RANGE = %f\n", p.dynamic_range);
 	p.freq_spacing = ((float) orig_sample->freq) / PLAYER_WINDOW_SIZE;
 	p.volume = 255;
 	memcpy(p.equaliz,
@@ -347,15 +403,24 @@ void pinit(const char *path)
 	voice_set_playmode(v, PLAYMODE_PLAY);
 }
 
+/**
+ * @brief	take the external global event and call the function
+ *		corresponding to the right funtion. It also cleans the
+ * 		event variable each time is called.
+ */
 void pdispatch()
 {
-	if (voice_get_position(v) < 0 && mystate != STOP && mystate != PAUSE) {
-		PlayerStop();
-	}
-	else if(mystate != STOP && mystate != PAUSE){
-		pos = voice_get_position(v);
-		p.time = pos / orig_sample->freq;
-		update_spectogram();
+	if (p.state != STOP && p.state != PAUSE){
+		// allegro set position = -1 when the song reached the end.
+		if (voice_get_position(v) < 0) {
+			PlayerStop();
+		} else {
+			// update position time and spectogram ever
+			// when reproducing
+			pos = voice_get_position(v);
+			p.time = pos / orig_sample->freq;
+			update_spectogram();
+		}
 	}
 
 	switch (evt.sig) {
@@ -375,10 +440,12 @@ void pdispatch()
 		PlayerForward();
 		break;
 	case VOL_SIG:
+		// convert [0-100] scale to [0-255] scale
 		voice_set_volume(v, (int) (evt.val * 2.55));
 		p.volume = (int) evt.val;
 		break;
 	case JUMP_SIG:
+		// convert time to position thanks to frequency
 		pos = evt.val * orig_sample->freq;
 		p.time = evt.val;
 		voice_set_position(v, pos);
@@ -405,78 +472,97 @@ void pdispatch()
 	evt = (pevent) {0, 0};
 }
 
+/**
+ * @brief	Function that manage the STOP_SIG event.
+ *		It stop to reproduce the sound.
+ * 		It brings the state to STOP, player position and time to 0,
+ *		and reset all the spectogram to 0.
+ */
 static void PlayerStop()
 {
-	if(mystate != PAUSE)
+	if(p.state != PAUSE)
 		voice_stop(v);
-	if (mystate == REWIND || mystate == FORWARD) {
-		if (mystate == REWIND)
+	if (p.state == REWIND || p.state == FORWARD) {
+		if (p.state == REWIND)
 			voice_set_playmode(v, PLAYMODE_FORWARD);
 		voice_set_frequency(v, orig_sample->freq);
 	}
 	voice_set_position(v, 0);
 	memset(p.spectogram, 0, sizeof(p.spectogram));
 	p.time = pos = 0;
-	p.state = mystate = STOP;
+	p.state = STOP;
 }
 
+/**
+ * @brief	Function that manage the PLAY_SIG event.
+ */
 static void PlayerPlay()
 {
-	if (mystate == STOP || mystate == PAUSE)
+	if (p.state == STOP || p.state == PAUSE)
 		voice_start(v);
-	if (mystate == REWIND || mystate == FORWARD) {
-		if (mystate == REWIND){
+	if (p.state == REWIND || p.state == FORWARD) {
+		if (p.state == REWIND){
 			voice_set_playmode(v, PLAYMODE_FORWARD);
 			voice_set_position(v, pos);
 		}
+		// set frequency to the original freq.
 		voice_set_frequency(v, orig_sample->freq);
 	}
-	p.state = mystate = PLAY;
+	p.state = PLAY;
 }
 
+/**
+ * @brief	Function that manage the PAUSE_SIG event.
+ */
 static void PlayerPause()
 {
-	if(mystate != STOP && mystate != PAUSE){
+	if(p.state != STOP && p.state != PAUSE){
 		voice_stop(v);
 	}
-	if (mystate == REWIND || mystate == FORWARD){
+	if (p.state == REWIND || p.state == FORWARD){
 		voice_set_frequency(v, orig_sample->freq);
-		if(mystate == REWIND){
+		if(p.state == REWIND){
 			voice_set_playmode(v, PLAYMODE_FORWARD);
 			voice_set_position(v, pos);
 		}
 	}
-	p.state = mystate = PAUSE;
+	p.state = PAUSE;
 }
 
+/**
+ * @brief	Function that manage the RWND_SIG event.
+ */
 static void PlayerRewind()
 {
-	if(mystate != REWIND && mystate != STOP){
+	if(p.state != REWIND && p.state != STOP){
 		voice_set_playmode(v, PLAYMODE_BACKWARD);
 		voice_set_position(v, pos);
 		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
 	}
-	//else if (mystate == REWIND)
+	//else if (p.tate == REWIND)
 	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
-	if (mystate == PAUSE)
+	if (p.state == PAUSE)
 		voice_start(v);
-	p.state = mystate = REWIND;
+	p.state = REWIND;
 }
 
+/**
+ * @brief	Function that manage the FRWD_SIG event.
+ */
 static void PlayerForward()
 {
-	if (mystate != FORWARD){
+	if (p.state != FORWARD){
 		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
 	}
 	//else{
 	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
 	//}
-	if (mystate == STOP || mystate == PAUSE){
+	if (p.state == STOP || p.state == PAUSE){
 		voice_start(v);
 	}
-	if (mystate == REWIND){
+	if (p.state == REWIND){
 		voice_set_playmode(v, PLAYMODE_FORWARD);
 		voice_set_position(v, pos);
 	}
-	p.state = mystate = FORWARD;
+	p.state = FORWARD;
 }

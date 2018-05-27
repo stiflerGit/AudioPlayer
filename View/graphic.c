@@ -9,7 +9,16 @@
 
 static void g_draw_text(Node *n);
 static void g_draw_img(Node *n);
+static void g_clear_text(Node *n);
 
+/**
+ * @brief       Control if a 2D coordinate is inside an object area
+ * @param[in]   n       address of the Obj.
+ * @param[in]   x       x coordinate
+ * @param[in]   y       y coordinate
+ * @return      return 1 if the 2D coordinate is inside the Obj. Area.
+ *              0 Otherwise.
+ */
 char is_inside(Node *n, int x, int y)
 {
 	assert(n != NULL);
@@ -19,6 +28,15 @@ char is_inside(Node *n, int x, int y)
 	return 0;
 }
 
+/** 
+ * @brief       Draw a graphic object on screen. 
+ *
+ * Switch among Node type to call the correct allegro function, more complex
+ * object(the ones that needs addition object-specific data) are managed in 
+ * dedicated functions.
+ *
+ * @param[in]   n       address of the Object to draw 
+ */
 void g_draw(Node *n)
 {
 	assert(n != NULL);
@@ -45,67 +63,15 @@ void g_draw(Node *n)
 	unscare_mouse();
 }
 
-static void g_draw_text(Node *n)
-{
-text	*me;
-
-	assert(n!=NULL);
-	assert(n->type == TEXT);
-	assert(n->dp != NULL);
-	me = n->dp;
-	switch (me->align) {
-	case left:
-		textout_ex(screen, font, me->str, n->x, n->y, n->fg, n->bg);
-		break;
-	case centre:
-		textout_centre_ex(screen, font, me->str, n->x, n->y, n->fg,
-				n->bg);
-		break;
-	case right:
-		textout_right_ex(screen, font, me->str, n->x, n->y, n->fg,
-				n->bg);
-		break;
-	default:
-		break;
-	}
-}
-
-static void g_draw_img(Node *n)
-{
-img	*me;
-	assert(n!=NULL);
-	assert(n->type == IMG);
-	assert(n->dp != NULL);
-	me = n->dp;
-	if (me->_img == NULL) {
-		me->_img = load_bitmap(me->path, NULL);
-		if (me->_img == NULL){
-			printf("load_birmap: %s\n", me->path);
-			handle_error("load_bitmap");
-		}
-	}
-	if(n->bg != TSPRNT){
-		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->bg);
-	}
-	if(n->fg != TSPRNT){
-		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
-	}
-	stretch_sprite(screen, me->_img, n->x, n->y, n->w, n->h);
-}
-
-void g_stretch(Node *n, int x, int y, int w, int h)
-{
-
-	assert(n != NULL);
-	g_clear(n);
-	n->x = x;
-	n->y = y;
-	n->w = w;
-	n->h = h;
-	g_draw(n);
-}
-
-static void g_clear_text(Node *n);
+/** 
+ * @brief       Clear the screen from a graphic object.
+ *
+ * Switch among Node type to call the correct allegro function, more complex
+ * object(the ones that needs addition object-specific data) are managed in 
+ * dedicated functions.
+ *
+ * @param[in]   n       address of the Object to clear.
+ */
 void g_clear(Node * n)
 {
 	assert(n != NULL);
@@ -130,13 +96,77 @@ void g_clear(Node * n)
 	unscare_mouse();
 }
 
+/**
+ * @brief	Change a position and/or size of a gr. obj. and draws it.
+ *
+ * It simply clear the old obj. than change its parameters and draws the obj
+ * again.
+ *
+ * @param[in]	n	address of the Object to stretch.
+ * @param[in]	x	new x coordinate.
+ * @param[in]	y	new y coordinate.
+ * @param[in]	w	new width.
+ * @param[in]	h	new height.
+ */
+void g_stretch(Node *n, int x, int y, int w, int h)
+{
+
+	assert(n != NULL);
+	g_clear(n);
+	n->x = x;
+	n->y = y;
+	n->w = w;
+	n->h = h;
+	g_draw(n);
+}
+
+/*******************************************************************************
+ *				TEXT
+ ******************************************************************************/
+/**
+ * @brief	Dedicate Text draw function.
+ *
+ * Switch among alignment to call the right allegro function.
+ *
+ * @param[in]	n	address of the text Object.
+ */
+static void g_draw_text(Node *n)
+{
+text	*me;
+
+	assert(n!=NULL);
+	assert(n->type == TEXT && n->dp != NULL);
+	me = n->dp;
+	switch (me->align) {
+	case left:
+		textout_ex(screen, font, me->str, n->x, n->y, n->fg, n->bg);
+		break;
+	case centre:
+		textout_centre_ex(screen, font, me->str, n->x, n->y, n->fg,
+				n->bg);
+		break;
+	case right:
+		textout_right_ex(screen, font, me->str, n->x, n->y, n->fg,
+				n->bg);
+		break;
+	default:
+		break;
+	}
+}
+
+/**
+ * @brief	Dedicated Text clear function.
+ *
+ * Switch among alignment and draw a text with the background color.
+ *
+ * @param[in]	n	address of the text Object.
+ */
 static void g_clear_text(Node *n)
 {
 text	*me;
 
 	assert(n!=NULL);
-	assert(n->type == TEXT);
-	assert(n->dp != NULL);
+	assert(n->type == TEXT && n->dp != NULL);
 	me = n->dp;
 	switch (me->align) {
 	case left:
@@ -155,122 +185,37 @@ text	*me;
 	}
 }
 
-/*
-int bar_clear(bar *me) {
-	rectfill(screen, me->x, me->y, me->x + me->w, me->y + me->h, me->bg);
-	me->y += me->h;
-	me->h = 0;
-	return 0;
-}
-
-int bar_move(bar *me, int x, int y) {
-	scare_mouse();
-	rectfill(screen, me->x, me->y, me->x + me->w, me->y + me->h, me->bg);
-	me->x = (x > 0) ? x : me->x;
-	me->y = (y > 0) ? y : me->y;
-	rectfill(screen, me->x, me->y, me->x + me->w, me->y + me->h, me->col);
-	unscare_mouse();
-	return 0;
-}
-
-int bar_stretch(bar *me, int w, int h)
+/*******************************************************************************
+ *				IMAGE
+ ******************************************************************************/
+/**
+ * @brief	Dedicate Image draw function.
+ *
+ * If the img_ pointer is equal to NULL, it is initialized with a call
+ * to allegro load_bitmap function.
+ * Image are managed with three layer, first a rect of background color,
+ * second a rect of foreground color and than the image is drawn.
+ *
+ * @param[in]	n	address of the text Object.
+ */
+static void g_draw_img(Node *n)
 {
-int	delta;
-int	col;
-
-	scare_mouse();
-	if (me->h != h && h > 0) {
-		delta = me->h - h;
-		col = (delta < 0) ? me->col : me->bg;
-//		printf("rectfill(screen, %d, %d, %d, %d, %X)\n",me->x, me->y, me->x + me->w, me->y + delta, col);
-		rectfill(screen, me->x, me->y, me->x + me->w, me->y + delta, col);
-		me->y += delta;
-		me->h = h;
+img	*me;
+	assert(n!=NULL);
+	assert(n->type == IMG && n->dp != NULL);
+	me = n->dp;
+	if (me->_img == NULL) {
+		me->_img = load_bitmap(me->path, NULL);
+		if (me->_img == NULL){
+			printf("load_bitmap: %s\n", me->path);
+			handle_error("load_bitmap");
+		}
 	}
-	if (me->w != w && w > 0) {
-		delta = me->h - w;
-		col = (delta < 0) ? me->col : me->bg;
-		rectfill(screen, me->x, me->y, me->x + delta, me->y + me->h, col);
-		me->x += delta;
-		me->w = w;
+	if(n->bg != TSPRNT){
+		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->bg);
 	}
-	unscare_mouse();
-	return 0;
-}
-
-
-void button_clear(button *me)
-{
-	rectfill(screen, me->x, me->y, me->x + me->w, me->y + me->h, me->bg);
-}
-
-void button_highlight(button *me)
-{
-	rectfill(screen, me->x, me->y, me->x + me->w, me->y + me->h, !(me->bg));
-	stretch_sprite(screen, me->_img, me->x, me->y, me->w, me->h);
-}
-
-void button_xtor(button *me)
-{
-	destroy_bitmap(me->_img);
-}
-
-void button_print(button *me)
-{
-	printf("path: %s\n", me->path);
-	printf("x: %d\n", me->x);
-	printf("y: %d\n", me->y);
-	printf("w: %d\n", me->w);
-	printf("h: %d\n", me->h);
-	printf("bg: %x\n", me->bg);
-
-}
-
-void text_setstr(text *me, const char *str){
-	strcpy(me->str, str);
-	text_draw(me);
-}
-
-void text_clear(text *me) {
-	switch (me->align) {
-	case left:
-		textout_ex(screen, font, me->str, me->x, me->y, me->bg, me->bg);
-		break;
-	case centre:
-		textout_centre_ex(screen, font, me->str, me->x, me->y, me->bg,
-				me->bg);
-		break;
-	case right:
-		textout_right_ex(screen, font, me->str, me->x, me->y, me->bg,
-				me->bg);
-		break;
-	default:
-		break;
+	if(n->fg != TSPRNT){
+		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
 	}
+	stretch_sprite(screen, me->_img, n->x, n->y, n->w, n->h);
 }
-
-void text_slidel(text *me)
-{
-char	slide[100];
-char	first[2];
-
-	first[0] = me->str[0];
-	first[1] = '\0';
-	strcpy(slide, &me->str[1]);
-	strcat(slide, first);
-	text_setstr(me, slide);
-}
-
-void text_slider(text *me)
-{
-char	slide[100];
-char	*last;
-
-	strcpy(&slide[1], me->str);
-	last = index(slide, '\0');
-	last--;
-	slide[0] = *last;
-	*last = '\0';
-	strcpy(me->str, slide);
-}
-*/
