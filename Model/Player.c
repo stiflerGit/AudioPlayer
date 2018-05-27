@@ -33,12 +33,12 @@ static int	pos;		/**< Reproducing position. */
 static int 	v;		/**< Allegro voice associated to player. */
 static SAMPLE 	*orig_sample;	/**< Original Sample. Needed either for return
 				to original state or to filter (equalize). */
-static SAMPLE 	*filt_sample;	/**< Filtered Sample. This is the SAMPLE used for
-				sound reproduction.*/
+static SAMPLE 	*filt_sample;	/**< Filtered Sample. This is the SAMPLE used 
+				for sound reproduction.*/
 
-/******************************************************************************
- * Player Events
- *****************************************************************************/
+/*******************************************************************************
+ * 				Player Events
+ ******************************************************************************/
 static void PlayerPlay();
 static void PlayerPause();
 static void PlayerStop();

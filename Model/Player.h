@@ -13,18 +13,20 @@
  * 2 - Output of the player (State, Filters)
  *
  * @bug Deadline Miss for the filters events.
+ *	Volume at maximum when signal FILT is dispatched.
  */
 
 
 #ifndef PLAYER_H_
 #define PLAYER_H_
 
-#define PLAYER_MAX_FREQ		(44100)			/**< Max sample per seconds. */
-#define PLAYER_MAX_SMPL_SIZE	(2)			/**< Max no. Byte per sample. */
-#define PLAYER_MAX_NCH		(1)			/**< Max no. Channels. */
-#define PLAYER_WINDOW_SIZE	(8192)
-#define PLAYER_WINDOW_SIZE_CPX	((PLAYER_WINDOW_SIZE/2)+1)
-#define PLAYER_NFILT		(4)			/**< No. Filters implementig EQ. */
+#define PLAYER_MAX_FREQ		(44100)	/**< Max sample per seconds. */
+#define PLAYER_MAX_SMPL_SIZE	(2)	/**< Max no. Byte per sample. */
+#define PLAYER_MAX_NCH		(1)	/**< Max no. Channels. */
+#define PLAYER_WINDOW_SIZE	(8192)	/**< Size of the Windows for spectogram
+					computation. */
+#define PLAYER_WINDOW_SIZE_CPX	((PLAYER_WINDOW_SIZE/2)+1)\
+#define PLAYER_NFILT		(4)	/**< No. Filters implementig EQ. */
 
 /**
  * @brief	Signals by means of interact with the Player.
@@ -48,7 +50,7 @@ typedef enum {
 	JUMP_SIG,	/**< Jump to a specific play time. */
 	FILTLOW_SIG,	/**< Filter low frequencies (20Hz - 500Hz). */
 	FILTMED_SIG,	/**< Filter medium frequencies (500Hz - 2000Hz). */
-	FILTMEDHIG_SIG,	/**< Filter medium-high frequencies (2000Hz - 8000Hz). */
+	FILTMEDHIG_SIG,	/**< Filter medium-high frequencies (2000Hz - 8000Hz).*/
 	FILTHIG_SIG	/**< Filter high frequencies (8000Hz - 16000Hz). */
 } psignal;
 
@@ -74,11 +76,11 @@ typedef struct {
  * on inputs events it received. This are all Player states.
  */
 typedef enum {
-	STOP,		/**< No audio reproducing. Position: start od the song */
-	PLAY,		/**< Reproducing normal speed. */
-	PAUSE,		/**< No audio reproducing. Position: last before pause state. */
-	REWIND,		/**< Reproducing backward faster than normal speed. */
-	FORWARD,	/**< Reproducing faster. */
+	STOP,	/**< No audio reproducing. Position: start od the song. */
+	PLAY,	/**< Reproducing normal speed. */
+	PAUSE,	/**< No audio reproducing. Position: last before pause state. */
+	REWIND,	/**< Reproducing backward faster than normal speed. */
+	FORWARD,/**< Reproducing faster. */
 } pstate;
 
 #define MAX_GAIN	12	/**< Maximum Decibel gain of filters. */
@@ -94,15 +96,20 @@ typedef struct {
 } filter;
 
 typedef struct{
-	pstate		state;					/**< The player State. */
-	char 		trackname[100];				/**< Track Name. */
-	float 		time;					/**< Actual reproducing time in sec. */
-	float 		duration;				/**< Total track duration in sec. */
-	float		spectogram[PLAYER_WINDOW_SIZE_CPX];	/**< Spectrogram of the reproducing window. */
-	float		dynamic_range;				/**< Decibel range of each spect. term. */
-	float		freq_spacing;				/**< Frequency spacing between each spect. term */
-	unsigned int 	volume;					/**< Reproducing volume [0-100]. */
-	filter		equaliz[PLAYER_NFILT];			/**< Set of filters implementing the band equalizator . */
+	pstate		state;		/**< The player State. */
+	char 		trackname[100];	/**< Track Name. */
+	float 		time;		/**< Actual reproducing time in sec. */
+	float 		duration;	/**< Total track duration in sec. */
+	float		spectogram[PLAYER_WINDOW_SIZE_CPX];
+					/**< Spectrogram of the reproducing 
+					window. */
+	float		dynamic_range;	/**< Decibel range of each spect. term.*/
+	float		freq_spacing;	/**< Frequency spacing between 
+					each spect. term */
+	unsigned int 	volume;		/**< Reproducing volume [0-100]. */
+	filter		equaliz[PLAYER_NFILT];
+					/**< Set of filters implementing the 
+					band equalizator . */
 }Player;
 
 extern Player p;
