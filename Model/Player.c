@@ -9,7 +9,7 @@
  * where events are dispatched to event-functions, it means each
  * event as a function.
  *
- * @bug
+ * @bug when change equalization during state != Play, it return in Play status
  */
 #include "Player.h"
 #include <stdio.h>
@@ -114,13 +114,14 @@ char	err[1024];	/**< Error string. */
  * @param[in]	count	no. data to convert.
  * @ret			no. samples converted
  */
-static int sample_to_float(const SAMPLE *s, float *buf, int off, int count)
+static int sample_to_float(const SAMPLE *s, float *buf, unsigned int off, 
+				unsigned int count)
 {
 int	j;	/**< sample data index */
 int16_t	d16;	/**< buff to get the original signed value for 16bit depth. */
 int8_t	d8;	/**< buff to get the original signed value for 8bit depth. */
 
-	for (j = 0; j < count && (off + j) < s->len; j++) {
+	for (j = 0; j < count &&  j < s->len - off; j++) {
 		if (s->bits == 16) {
 			d16 = le16toh(((int16_t *)(s->data))[off+j]) ^ 0x8000;
 			buf[j] = (float) d16;
@@ -280,22 +281,14 @@ static int	max = 0;				/**< Maximum value step
 }
 
 /**
- * @brief	Debug scope only
- */
-void print_spect()
-{
-	print_fbuff(p.spectogram, PLAYER_WINDOW_SIZE_CPX);
-}
-
-/**
  * @brief	filter complex data depending on actual filters values
  * @param[inout]	freqdata	complex data buffer of fixed 
  * 					PLAYER_WINDOW_SIZE size
  */
 static void filt(fftwf_complex freqdata[])
 {
-int	j, k;		/**<Array indexes. */
-float	mod, ph;	/**<.Module and Phase */
+int	j, k;		/**< Array indexes. */
+float	mod, ph;	/**< Module and Phase */
 
 	for (j = 0; j < PLAYER_WINDOW_SIZE_CPX; j++) {
 		for (k = 0; k < PLAYER_NFILT; k++) {
@@ -322,12 +315,15 @@ float	mod, ph;	/**<.Module and Phase */
  */
 static void PlayerFilt()
 {
-int		i;
-int		ret;
+int		i;	/**< Array Index. */
+int		ret;	/**< Funtions return value. */
 float		timedata[PLAYER_WINDOW_SIZE];
+			/**< Window of data in time domain*/
 fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
+			/**< Window of data in frequency domain*/
 SAMPLE		*new_filt_sample;
-char		start;
+			/**< Pointer to the new filtered song. */
+char		start;	/**< Song have to start after has been filtered. */
 
 	new_filt_sample = create_sample(orig_sample->bits, orig_sample->stereo,
 			orig_sample->freq, orig_sample->len);
@@ -366,6 +362,7 @@ char		start;
 	destroy_sample(filt_sample);
 	filt_sample = new_filt_sample;
 	voice_set_position(v, pos);
+	voice_set_volume(v, p.volume * 2.55);
 	if (start)
 		voice_start(v);
 }
@@ -410,6 +407,7 @@ void pinit(const char *path)
  */
 void pdispatch()
 {
+
 	if (p.state != STOP && p.state != PAUSE){
 		// allegro set position = -1 when the song reached the end.
 		if (voice_get_position(v) < 0) {
@@ -418,11 +416,10 @@ void pdispatch()
 			// update position time and spectogram ever
 			// when reproducing
 			pos = voice_get_position(v);
-			p.time = pos / orig_sample->freq;
+			p.time = (((float)pos) / ((float)orig_sample->freq));
 			update_spectogram();
 		}
 	}
-
 	switch (evt.sig) {
 	case STOP_SIG:
 		PlayerStop();
