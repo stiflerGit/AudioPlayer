@@ -25,7 +25,7 @@
 #define PLAYER_MAX_NCH		(1)	/**< Max no. Channels. */
 #define PLAYER_WINDOW_SIZE	(8192)	/**< Size of the Windows for spectogram
 					computation. */
-#define PLAYER_WINDOW_SIZE_CPX	((PLAYER_WINDOW_SIZE/2)+1)\
+#define PLAYER_WINDOW_SIZE_CPX	((PLAYER_WINDOW_SIZE/2)+1)
 #define PLAYER_NFILT		(4)	/**< No. Filters implementig EQ. */
 
 /**
@@ -119,7 +119,7 @@ extern pevent evt;
  * @brief	Initialize the Player p
  *
  * @param[in]	path	path were the song is located
- * @return		-1 in case of error, 0 otherwise
+ * @return		void
  */
 void pinit(const char *path);
 
@@ -135,7 +135,5 @@ void pdispatch();
  * @brief	print on the stdout the player info
  */
 void pprint();
-
-void print_spect();
 
 #endif /* PLAYER_H_ */
