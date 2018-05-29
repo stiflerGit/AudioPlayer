@@ -103,7 +103,8 @@ typedef struct{
 	float		spectogram[PLAYER_WINDOW_SIZE_CPX];
 					/**< Spectrogram of the reproducing 
 					window. */
-	float		dynamic_range;	/**< Decibel range of each spect. term.*/
+	float		dynamic_range;	/**< Decibel range of each spect. 
+					term.*/
 	float		freq_spacing;	/**< Frequency spacing between 
 					each spect. term */
 	unsigned int 	volume;		/**< Reproducing volume [0-100]. */
