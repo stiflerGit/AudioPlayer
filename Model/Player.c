@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <libgen.h>
 #include <math.h>
 #include <fftw3.h>
 #include <allegro.h>
@@ -52,21 +53,16 @@ static void PlayerForward();
  * @param[out]	name	where the file name is saved 
  * @param[in]	path	absolute/relative path of the file
  */
-static void get_trackname(char *name, const char *path)
+static void get_trackname(char name[], const char path[])
 {
-char	*path_;
-char	*ssc;
-int	l;
+char	path_[1024];
+char	*name_;
 
-	path_ = path;
-	ssc = strstr(path_, "/");
+	strcpy(path_, path);
+	name_ = basename(path_);
 
-	do{
-		l = strlen(ssc) + 1;
-		path_ = &path_[strlen(path_)-l+2];
-		ssc = strstr(path_, "/");
-	}while(ssc);
-	sprintf(name, "%s\n", path_);
+	sprintf(name, "%s\n", name_);
+	name[strlen(name)-1] = '\0';
 }
 
 /**
@@ -302,10 +298,10 @@ void pinit(const char *path)
 	p.volume = 255;
 	memcpy(p.equaliz,
 		(filter[4]){
-		{1, 20, 500},
-		{1, 500, 2000},
-		{1, 2000, 8000},
-		{1, 8000, 16000}},
+		{0, 20, 500},
+		{0, 500, 2000},
+		{0, 2000, 8000},
+		{0, 8000, 16000}},
 		sizeof(filter[4]));
 	// allocating the sample
 	v = allocate_voice(filt_sample);
@@ -418,7 +414,7 @@ fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
 				 *		here;
 				 */
 				mod = modulus(freqdata[j]) * 
-					(0.0417f *  p.equaliz[k].gain + 1);
+					((0.0417f *  p.equaliz[k].gain) + 1);
 				ph = phase(freqdata[j]);
 				freqdata[j][0] = mod * cosf(ph);
 				freqdata[j][1] = mod * sinf(ph);
