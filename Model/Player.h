@@ -23,7 +23,7 @@
 #define PLAYER_MAX_FREQ		(44100)	/**< Max sample per seconds. */
 #define PLAYER_MAX_SMPL_SIZE	(2)	/**< Max no. Byte per sample. */
 #define PLAYER_MAX_NCH		(1)	/**< Max no. Channels. */
-#define PLAYER_WINDOW_SIZE	(8192)	/**< Size of the Windows for spectogram
+#define PLAYER_WINDOW_SIZE	(16384)	/**< Size of the Windows for spectogram
 					computation. */
 #define PLAYER_WINDOW_SIZE_CPX	((PLAYER_WINDOW_SIZE/2)+1)
 #define PLAYER_NFILT		(4)	/**< No. Filters implementig EQ. */
