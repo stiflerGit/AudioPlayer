@@ -120,11 +120,6 @@ Node	*n;	/**< Pointer to the right Spect. Bar. */
 	delta = n->h - height;
 	// depending on delta sign, we have to clear or draw a rect.
 	col = (delta < 0) ? n->fg : n->bg;
-	/*
-	printf("height: %d\t", height);
-	printf("delta: %d\t", delta);
-	printf("color: %d\n", col);
-	*/
 	scare_mouse();
 	rectfill(screen, n->x, n->y, n->x + n->w, n->y + delta, col);
 	unscare_mouse();
@@ -342,6 +337,7 @@ void view_update()
 int	i, j;	/**< Array indexes for spectogram. */
 int	nbv;	/**< No. bars of the View (Spectogram). */
 int	spv;	/**< player Spectogram bar Per View bar. */
+char	next;	/**< A boolean variable for jump to next spect bar update. */
 int	pix;	/**< Pixel variable. */
 Node	*n;	/**< Pointer to a graphic object. */
 
@@ -361,7 +357,8 @@ Node	*n;	/**< Pointer to a graphic object. */
 		g_stretch(n, pix, n->y, n->w, n->h);
 		// time text update
 		n = &nodes[POS_PANEL][POS_TIME];
-		sprintf(((text *)(n->dp))->str, "%02d:%02d", ((int)p.time) / 60, ((int)p.time) % 60);
+		sprintf(((text *)(n->dp))->str, "%02d:%02d",
+			((int)p.time) / 60, ((int)p.time) % 60);
 		g_draw(n);
 		old_p.time = p.time;
 	}
@@ -370,11 +367,13 @@ Node	*n;	/**< Pointer to a graphic object. */
 	nbv = ZOOM_TO_BAR[fspect_panel.zoom];
 	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
 	for (i=0; i<nbv; i++){
-		for (j= i*spv; j < (i+1)*spv; j++){
+		next = 0;
+		for (j= i*spv; (j < (i+1)*spv) && (next == 0) ; j++){
 			if(old_p.spectogram[j] != p.spectogram[j]){
 				fspect_bar_update(i);
 				memcpy(&old_p.spectogram[j], &p.spectogram[j], 
 				sizeof(float)*(spv - (j % spv)));
+				next = 1;
 			}
 		}
 	}
