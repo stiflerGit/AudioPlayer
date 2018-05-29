@@ -39,6 +39,7 @@ static SAMPLE 	*filt_sample;	/**< Filtered Sample. This is the SAMPLE used
 /*******************************************************************************
  * 				Player Events
  ******************************************************************************/
+static void PlayerFilt();
 static void PlayerPlay();
 static void PlayerPause();
 static void PlayerStop();
@@ -53,20 +54,19 @@ static void PlayerForward();
  */
 static void get_trackname(char *name, const char *path)
 {
-char	*tok;		/**< Token between "/" separator. */
-char	*ptok;		/**< Previous token. */
-char	path_[256];	/**< input path copy. */
+char	*path_;
+char	*ssc;
+int	l;
 
-	if (path != NULL) {
-		strcpy(path_, path);
-		ptok = path_;
-		tok = strtok(path_, "/");
-		while (tok != NULL) {
-			ptok = tok;
-			tok = strtok(NULL, "/.");
-		}
-		strcpy(name, ptok);
-	}
+	path_ = path;
+	ssc = strstr(path_, "/");
+
+	do{
+		l = strlen(ssc) + 1;
+		path_ = &path_[strlen(path_)-l+2];
+		ssc = strstr(path_, "/");
+	}while(ssc);
+	sprintf(name, "%s\n", path_);
 }
 
 /**
@@ -230,19 +230,20 @@ fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create
  */
 static void update_spectogram()
 {
-int		i;					/**< Array index. */
-int		ret;					/**< Returned values. */
-float		timedata[PLAYER_WINDOW_SIZE];		/**< Sample Timedata 
-							buff. */
-fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];	/**< Frequency data buff
-							. */
-static int	max = 0;				/**< Maximum value step 
-							by step. */
+int		i;
+			/**< Array index. */
+int		ret;	/**< Returned values. */
+float		timedata[PLAYER_WINDOW_SIZE];
+			/**< Sample Timedata buff. */
+fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
+			/**< Frequency data buff. */
+static int	max = 0;
+			/**< Maximum value step by step. */
 
-	i = (pos < PLAYER_WINDOW_SIZE / 2) ? 0 : pos - PLAYER_WINDOW_SIZE / 2;
+	i = (pos < PLAYER_WINDOW_SIZE / 4) ? PLAYER_WINDOW_SIZE/4 : pos; 
 
-	ret = sample_to_float((const SAMPLE *) filt_sample, timedata, i,
-			PLAYER_WINDOW_SIZE);
+	ret = sample_to_float((const SAMPLE *) filt_sample, timedata,
+		i - PLAYER_WINDOW_SIZE/4, PLAYER_WINDOW_SIZE);
 	// zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
 		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
@@ -278,93 +279,6 @@ static int	max = 0;				/**< Maximum value step
 		// multiply that by 100 and obtain a final 0 to 100 range.
 		p.spectogram[i] = (int) (p.spectogram[i] * 100);
 	}
-}
-
-/**
- * @brief	filter complex data depending on actual filters values
- * @param[inout]	freqdata	complex data buffer of fixed 
- * 					PLAYER_WINDOW_SIZE size
- */
-static void filt(fftwf_complex freqdata[])
-{
-int	j, k;		/**< Array indexes. */
-float	mod, ph;	/**< Module and Phase */
-
-	for (j = 0; j < PLAYER_WINDOW_SIZE_CPX; j++) {
-		for (k = 0; k < PLAYER_NFILT; k++) {
-			if ((j * p.freq_spacing) > p.equaliz[k].low_bnd
-			&& (j * p.freq_spacing) < p.equaliz[k].upp_bnd) {
-				/**
-				 * TO-DO:	the gain is given in dB
-				 *		I have to find the link beetwen
-				 *		dB gain and the multiplication 
-				 *		here;
-				 */
-				mod = modulus(freqdata[j]) * 
-					(0.0417f *  p.equaliz[k].gain + 1);
-				ph = phase(freqdata[j]);
-				freqdata[j][0] = mod * cosf(ph);
-				freqdata[j][1] = mod * sinf(ph);
-			}
-		}
-	}
-}
-
-/**
- * @brief	Function that manage the FILT_SIG event.
- */
-static void PlayerFilt()
-{
-int		i;	/**< Array Index. */
-int		ret;	/**< Funtions return value. */
-float		timedata[PLAYER_WINDOW_SIZE];
-			/**< Window of data in time domain*/
-fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
-			/**< Window of data in frequency domain*/
-SAMPLE		*new_filt_sample;
-			/**< Pointer to the new filtered song. */
-char		start;	/**< Song have to start after has been filtered. */
-
-	new_filt_sample = create_sample(orig_sample->bits, orig_sample->stereo,
-			orig_sample->freq, orig_sample->len);
-
-	/*
-	 * first window is bigger than all the others ( 3/4 * WINDOWS_SIZE)
-	 */
-	ret = sample_to_float((const SAMPLE *) orig_sample, timedata, 0,
-			PLAYER_WINDOW_SIZE);
-	if (ret < PLAYER_WINDOW_SIZE)
-		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
-	FFT(timedata, freqdata);
-	filt(freqdata);
-	IFFT(freqdata, timedata);
-	float_to_sample((const float *) timedata, new_filt_sample, 0,
-			3 * PLAYER_WINDOW_SIZE / 4);
-
-	for (i = 1; i < 2 * (filt_sample->len / PLAYER_WINDOW_SIZE); i++) {
-		ret = sample_to_float((const SAMPLE *) orig_sample, timedata,
-				i * (PLAYER_WINDOW_SIZE/2), PLAYER_WINDOW_SIZE);
-		if(ret < PLAYER_WINDOW_SIZE)
-			memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
-		FFT(timedata, freqdata);
-		filt(freqdata);
-		IFFT(freqdata, timedata);
-		float_to_sample((const float *) &timedata[PLAYER_WINDOW_SIZE/4], 
-			new_filt_sample, 
-			(i * (PLAYER_WINDOW_SIZE / 2)) + PLAYER_WINDOW_SIZE / 4,
-			PLAYER_WINDOW_SIZE / 2);
-	}
-
-	start = 0;
-	if (voice_get_position(v) >= 0)
-		start = 1;
-	reallocate_voice(v, new_filt_sample);
-	destroy_sample(filt_sample);
-	filt_sample = new_filt_sample;
-	voice_set_position(v, pos);
-	voice_set_volume(v, p.volume * 2.55);
-	if (start)
-		voice_start(v);
 }
 
 /**
@@ -413,10 +327,11 @@ void pdispatch()
 		if (voice_get_position(v) < 0) {
 			PlayerStop();
 		} else {
-			// update position time and spectogram ever
-			// when reproducing
 			pos = voice_get_position(v);
 			p.time = (((float)pos) / ((float)orig_sample->freq));
+			// Online Filtering
+			PlayerFilt();
+			// Spectogram update when reproducing
 			update_spectogram();
 		}
 	}
@@ -449,24 +364,72 @@ void pdispatch()
 		break;
 	case FILTLOW_SIG:
 		p.equaliz[0].gain = evt.val;
-		PlayerFilt();
 		break;
 	case FILTMED_SIG:
 		p.equaliz[1].gain = evt.val;
-		PlayerFilt();
 		break;
 	case FILTMEDHIG_SIG:
 		p.equaliz[2].gain = evt.val;
-		PlayerFilt();
 		break;
 	case FILTHIG_SIG:
 		p.equaliz[3].gain = evt.val;
-		PlayerFilt();
 		break;
 	default:
 		break;
 	}
 	evt = (pevent) {0, 0};
+}
+
+/**
+ * @brief	Filter the data next to actual position
+ *
+ * 
+ */
+static void PlayerFilt()
+{
+int		j, k;	/**< Array indexes. */
+int		mod, ph;
+			/**< Module and phase of freq. bins. */
+int		pos_;	/**< Need for first values. */
+int		ret;	/**< Funtions return value. */
+float		timedata[PLAYER_WINDOW_SIZE];
+			/**< Window of data in time domain*/
+fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
+			/**< Window of data in frequency domain*/
+
+	pos_ = (pos < PLAYER_WINDOW_SIZE / 4) ? PLAYER_WINDOW_SIZE/4 : pos; 
+
+	ret = sample_to_float((const SAMPLE *) orig_sample, timedata, 
+		pos_ - PLAYER_WINDOW_SIZE/4, PLAYER_WINDOW_SIZE);
+	// zero pad in case there aren't enough time data
+	if (ret < PLAYER_WINDOW_SIZE)
+		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
+
+	FFT(timedata, freqdata);
+	// filt data in the frequency domain
+	for (j = 0; j < PLAYER_WINDOW_SIZE_CPX; j++) {
+		for (k = 0; k < PLAYER_NFILT; k++) {
+			if ((j * p.freq_spacing) > p.equaliz[k].low_bnd
+			&& (j * p.freq_spacing) < p.equaliz[k].upp_bnd) {
+				/**
+				 * TO-DO:	the gain is given in dB
+				 *		I have to find the link beetwen
+				 *		dB gain and the multiplication 
+				 *		here;
+				 */
+				mod = modulus(freqdata[j]) * 
+					(0.0417f *  p.equaliz[k].gain + 1);
+				ph = phase(freqdata[j]);
+				freqdata[j][0] = mod * cosf(ph);
+				freqdata[j][1] = mod * sinf(ph);
+			}
+		}
+	}
+
+	IFFT(freqdata, timedata);
+	// copy the center of the Window
+	float_to_sample((const float *) &timedata[PLAYER_WINDOW_SIZE/4], 
+		filt_sample, pos_, PLAYER_WINDOW_SIZE/2);
 }
 
 /**
