@@ -19,7 +19,7 @@ static void g_clear_text(Node *n);
  * @return      return 1 if the 2D coordinate is inside the Obj. Area.
  *              0 Otherwise.
  */
-char is_inside(Node *n, int x, int y)
+char is_inside(Node *n, unsigned int x, unsigned int y)
 {
 	assert(n != NULL);
 	if(	x > n->x && x < n->x + n->w &&
@@ -108,9 +108,9 @@ void g_clear(Node * n)
  * @param[in]	w	new width.
  * @param[in]	h	new height.
  */
-void g_stretch(Node *n, int x, int y, int w, int h)
+void g_stretch(Node *n, unsigned int x, unsigned int y,
+	unsigned int w, unsigned int h)
 {
-
 	assert(n != NULL);
 	g_clear(n);
 	n->x = x;
@@ -134,18 +134,32 @@ static void g_draw_text(Node *n)
 {
 text	*me;
 
-	assert(n!=NULL);
 	assert(n->type == TEXT && n->dp != NULL);
 	me = n->dp;
 	switch (me->align) {
 	case left:
+	/*
+		if (n->bg != TSPRNT)
+			rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, 
+				n->bg);
+	*/
 		textout_ex(screen, font, me->str, n->x, n->y, n->fg, n->bg);
 		break;
 	case centre:
+	/*
+		if (n->bg != TSPRNT)
+			rectfill(screen, n->x - n->w / 2, n->y - n->h /2, 
+				n->x + n->w / 2, n->y + n->h / 2, n->bg);
+	*/
 		textout_centre_ex(screen, font, me->str, n->x, n->y, n->fg,
 				n->bg);
 		break;
 	case right:
+	/*
+		if (n->bg != TSPRNT)
+			rectfill(screen, n->x, n->y, n->x - n->w, n->y - n->h, 
+				n->bg);
+	*/
 		textout_right_ex(screen, font, me->str, n->x, n->y, n->fg,
 				n->bg);
 		break;
@@ -165,7 +179,6 @@ static void g_clear_text(Node *n)
 {
 text	*me;
 
-	assert(n!=NULL);
 	assert(n->type == TEXT && n->dp != NULL);
 	me = n->dp;
 	switch (me->align) {
@@ -201,7 +214,6 @@ text	*me;
 static void g_draw_img(Node *n)
 {
 img	*me;
-	assert(n!=NULL);
 	assert(n->type == IMG && n->dp != NULL);
 	me = n->dp;
 	if (me->_img == NULL) {

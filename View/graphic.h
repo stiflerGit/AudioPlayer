@@ -68,7 +68,8 @@ void g_clear(Node *n);
  * @param[in]   w       new width.                                              
  * @param[in]   h       new height. 
  */
-void g_stretch(Node *n, int x, int y, int width, int height);
+void g_stretch(Node *n, unsigned int x, unsigned int y, 
+	unsigned int width, unsigned int height);
 
 /**
  * @brief	Control if a 2D coordinate is inside an object area
@@ -78,7 +79,7 @@ void g_stretch(Node *n, int x, int y, int width, int height);
  * @return	1 if the 2D coordinate is inside the Obj. Area.
  *		0 Otherwise.
  */
-char is_inside(Node *n, int x, int y);
+char is_inside(Node *n, unsigned int x, unsigned int y);
 
 /*******************************************************************************
  *				TEXT
