@@ -1,3 +1,11 @@
+/**
+ * @file	main.c
+ * @author	Stefano Fiori
+ * @date	3 June 2018
+ * @brief
+ *
+ * @todo	protectd shared variables.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <allegro.h>
@@ -46,6 +54,7 @@ pevent	evt;
 struct task_par 	tp[3];
 pthread_attr_t 		att[3];
 pthread_t		tid[3];
+pevent			evt;
 
 void *model(void *arg)
 {
@@ -56,7 +65,8 @@ struct task_par	*tp;
 	set_period(tp);
 
 	while(1){
-		pdispatch();
+		pdispatch(evt);
+		evt = (pevent) {0,0};
 
 		if(deadline_miss(tp))
 			printf("MODEL MISS\n");
@@ -115,7 +125,7 @@ struct sched_param	mypar;
 	view_init();
 	//pprint();
 	evt.sig = EMPTY_SIG;
-
+	// MODEL
 	tp[0].arg = 0;
 	tp[0].period = 50;
 	tp[0].deadline = 50;
@@ -127,7 +137,7 @@ struct sched_param	mypar;
 	mypar.sched_priority = tp[0].priority;
 	pthread_attr_setschedparam(&att[0], &mypar);
 	pthread_create(&tid[0], &att[0], model, &tp[0]);
-
+	// VIEW
 	tp[1].arg = 0;
 	tp[1].period = 80;
 	tp[1].deadline = 80;
@@ -139,7 +149,7 @@ struct sched_param	mypar;
 	mypar.sched_priority = tp[1].priority;
 	pthread_attr_setschedparam(&att[1], &mypar);
 	pthread_create(&tid[1], &att[1], view, &tp[1]);
-
+	// CONTROLLER
 	tp[2].arg = 0;
 	tp[2].period = 20;
 	tp[2].deadline = 20;
