@@ -26,37 +26,77 @@ struct fspect_panel_t{
 	Node 		bars[227];	/**< Bars of the spectogram. */
 	unsigned char 	zoom;		/**< Actual zoom of the panel.
 					It changes the no. bar shown. */
-}fspect_panel;
+	unsigned int	ID_PANEL;
+};
+
+struct fspect_panel_t	filt_spect_panel;
+struct fspect_panel_t	orig_spect_panel;
 
 static Player	old_p;	/**< Previous player state. */
 
+/*******************************************************************************
+ *				TIME DATA PANEL
+ ******************************************************************************/
+static void timedata_panel_update()
+{
+Node	*n;
+BITMAP	*buf;
+int	x, y;
+static int	old_y = 0;
+
+	n = &nodes[TIME_PANEL][0];
+	buf = create_bitmap(n->w/2 - n->w/30 , n->h-2);
+	
+	x = n->x + n->w/2;
+	// depend on p.time data
+	y = (n->y +n->h/2) - 
+		p.time_data * (n->h/2) / ((1<<(p.bits- 1))-1);
+
+	scare_mouse();
+	blit(screen, buf, n->x+n->w/30, n->y+1, 0, 0, buf->w, buf->h);
+	blit(buf, screen, 0, 0, n->x+1, n->y+1, buf->w, buf->h);
+	rectfill(screen, x + 1 - n->w/30, n->y + 1, x, n->y + n->h - 1, BLACK);
+	line(screen, x + 1 - n->w/30, old_y, x, y, RED);
+	unscare_mouse();
+	old_y = y;
+}
+
+/*******************************************************************************
+ *			FREQUENCY SPECTRUM PANEL
+ ******************************************************************************/
 /**
  * @brief	Initialize variables of each frequency spectrum bar
  *		that depends on zoom
  */
-static int fspect_panel_bars_init()
+static int fspect_panel_init(struct fspect_panel_t *panel)
 {
 int	bar_x;		/**< X bars coordinate. */
 int	bar_col;	/**< Color of the bar. */
 int	nbar;		/**< No. bars. */
 int	i;		/**< Bars Array index. */
+Node	*frame;
 
-	nbar = ZOOM_TO_BAR[fspect_panel.zoom];
-
-	bar_x = SPECT_X + 2;
+	nbar = ZOOM_TO_BAR[panel->zoom];
+	// first node in a panel is the frame.
+	frame = &nodes[panel->ID_PANEL][0];
+	bar_x = frame->x + 1;
 	bar_col = RED;
 
 	for (i = 0; i < nbar; i++) {
-		fspect_panel.bars[i] = (Node )
+		panel->bars[i] = (Node )
 			{ BAR, 
-			bar_x, SPECT_Y + SPECT_H - 1, ((SPECT_W - 2) / nbar) - 2, 0,
-			bar_col, SPECT_BGCOL, 0, NULL};
-		bar_x += (SPECT_W - 2) / nbar;
+			.x = bar_x, 
+			.y = frame->y + frame->h - 1,
+			.w = ((frame->w - 2) / nbar) - 2, 
+			.h = 0,
+			.fg = bar_col, .bg = BLACK,
+			.evt = 0, .dp = NULL};
+		bar_x += (frame->w - 2) / nbar;
 		bar_col = RED;
 	}
 
-	g_draw(&(nodes[SPECT_PANEL][ZOOMIN_BTN]));
-	g_draw(&(nodes[SPECT_PANEL][ZOOMOUT_BTN]));
+	g_draw(&(nodes[panel->ID_PANEL][ZOOMIN_BTN]));
+	g_draw(&(nodes[panel->ID_PANEL][ZOOMOUT_BTN]));
 
 	return 0;
 }
@@ -92,7 +132,8 @@ float	val;
  * @param[in]	i	No bar to draw.
  */
  
-static void fspect_bar_update(unsigned int i)
+static void fspect_bar_update(struct fspect_panel_t *panel, unsigned int i,
+	float spect[])
 {
 int	height;	/**< New bar update. */
 int	delta;	/**< Difference between old height and new height of the bar. */
@@ -100,62 +141,58 @@ int	col;	/**< Color with which to draw. */
 int	nbar;	/**< No. bar actually showed in the spect.. Depends on zoom. */
 Node	*n;	/**< Pointer to the right Spect. Bar. */
 	
-	nbar = ZOOM_TO_BAR[fspect_panel.zoom];
+	nbar = ZOOM_TO_BAR[panel->zoom];
 	assert(i<nbar);
 	// the last bar can overflow the player spectogram.
 	if (i < nbar){
 		height = 
-		avg(&(p.spectogram[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
+		avg(&(spect[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
 		PLAYER_WINDOW_SIZE_CPX / nbar);
 	} else {
 		height = 
-		avg(&(p.spectogram[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
+		avg(&(spect[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
 		PLAYER_WINDOW_SIZE_CPX % nbar);
 	}
 	// since height is in the [0-100] range we can obtain easily the new
 	// height by multiplying for Panel Height
-	height = SPECT_H * height / 100;
-	n = &fspect_panel.bars[i];
+	n = &nodes[panel->ID_PANEL][0];
+	height = n->h * height / 100;
+	n = &panel->bars[i];
 	// delta could be negative or positive.
 	delta = n->h - height;
 	// depending on delta sign, we have to clear or draw a rect.
 	col = (delta < 0) ? n->fg : n->bg;
-	/*
-	printf("height: %d\t", height);
-	printf("delta: %d\t", delta);
-	printf("color: %d\n", col);
-	*/
 	scare_mouse();
 	rectfill(screen, n->x, n->y, n->x + n->w, n->y + delta, col);
 	unscare_mouse();
 	// if the bar draw on the buttons re-draws them
-	if(is_inside(&nodes[SPECT_PANEL][ZOOMIN_BTN], n->x, n->y))
-		g_draw(&nodes[SPECT_PANEL][ZOOMIN_BTN]);
-	if(is_inside(&nodes[SPECT_PANEL][ZOOMOUT_BTN], n->x, n->y))
-		g_draw(&nodes[SPECT_PANEL][ZOOMOUT_BTN]);
+	if(is_inside(&nodes[panel->ID_PANEL][ZOOMIN_BTN], n->x, n->y))
+		g_draw(&nodes[panel->ID_PANEL][ZOOMIN_BTN]);
+	if(is_inside(&nodes[panel->ID_PANEL][ZOOMOUT_BTN], n->x, n->y))
+		g_draw(&nodes[panel->ID_PANEL][ZOOMOUT_BTN]);
 	// update bar state
 	n->y += delta;
 	n->h = height;
 }
 
-int fspect_panel_zoomin()
+int fspect_panel_zoomin(struct fspect_panel_t* panel)
 {
-	if (fspect_panel.zoom <= MAXZOOM) {
-		fspect_panel.zoom++;
-		fspect_panel_bars_init();
+	if (panel->zoom <= MAXZOOM) {
+		panel->zoom++;
+		fspect_panel_init(panel);
 		//fspect_panel_draw();
-		return fspect_panel.zoom;
+		return panel->zoom;
 	}
 	return -1;
 }
 
-int fspect_panel_zoomout()
+int fspect_panel_zoomout(struct fspect_panel_t *panel)
 {
-	if (fspect_panel.zoom > 0) {
-		fspect_panel.zoom--;
-		fspect_panel_bars_init();
+	if (panel->zoom > 0) {
+		panel->zoom--;
+		fspect_panel_init(panel);
 		//fspect_panel_draw();
-		return fspect_panel.zoom;
+		return panel->zoom;
 	}
 	return -1;
 }
@@ -179,7 +216,7 @@ Node	*n;		/**< Pointer to a graphic Obj. */
 static int	blink_count = 0;
 			/**< Counter for title blinking. */
 
-	n = &nodes[TITLE_PANEL][TITLE_TXT];
+	n = &nodes[TITLE_PANEL][TITLEP_TXT];
 
 	if(p.state != PAUSE)
 		n->fg = WHITE;
@@ -291,7 +328,7 @@ Node	*n;
  *
  * It call first the allegro functions that initialiaze a Windows on the screen
  * Than draw all graphic objects defined statically in the configuration file.
- * The only things that need to be initialized dinamically are the spectogram
+ * The only things that need to be initialized dinamically are the spectograms
  * bars, but only for pratically reasons.
  * Take the first copy of Player p.
  */
@@ -304,7 +341,7 @@ Node	*n;	/**< Pointer to a graphic Obj. */
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, WIN_W, WIN_H, 0, 0);
 	clear_to_color(screen, 0);
 	
-	n = &nodes[TITLE_PANEL][TITLE_TXT];
+	n = &nodes[TITLE_PANEL][TITLEP_TXT];
 	strcpy(((text *)n->dp)->str, p.trackname);
 	strcat(((text *)n->dp)->str, "       ");
 
@@ -314,8 +351,12 @@ Node	*n;	/**< Pointer to a graphic Obj. */
 		}
 	}
 
-	fspect_panel.zoom = 4;
-	fspect_panel_bars_init();
+	filt_spect_panel.zoom = 4;
+	filt_spect_panel.ID_PANEL = FILT_SP_PANEL;
+	fspect_panel_init(&filt_spect_panel);
+	orig_spect_panel.zoom = 4;
+	orig_spect_panel.ID_PANEL = ORIG_SP_PANEL;
+	fspect_panel_init(&orig_spect_panel);
 
 	memcpy(&old_p, &p, sizeof(Player));
 
@@ -342,6 +383,7 @@ void view_update()
 int	i, j;	/**< Array indexes for spectogram. */
 int	nbv;	/**< No. bars of the View (Spectogram). */
 int	spv;	/**< player Spectogram bar Per View bar. */
+char	next;	/**< A boolean variable for jump to next spect bar update. */
 int	pix;	/**< Pixel variable. */
 Node	*n;	/**< Pointer to a graphic object. */
 
@@ -353,47 +395,84 @@ Node	*n;	/**< Pointer to a graphic object. */
 	// Title is always moving
 	title_draw();
 	// PLAYER TIME
-	if(old_p.time != p.time){
-		n = &nodes[POS_PANEL][POS_BAR];
+	if (old_p.time != p.time){
+		n = &nodes[POS_PANEL][POSP_BAR];
 		// position set bar update
 		pix = n->w * p.time / p.duration + n->x;
-		n = &nodes[POS_PANEL][POS_SETB];
+		n = &nodes[POS_PANEL][POSP_SETB];
+		// HERE
 		g_stretch(n, pix, n->y, n->w, n->h);
 		// time text update
-		n = &nodes[POS_PANEL][POS_TIME];
-		sprintf(((text *)(n->dp))->str, "%02d:%02d", ((int)p.time) / 60, ((int)p.time) % 60);
+		n = &nodes[POS_PANEL][POSP_TIME];
+		sprintf(((text *)(n->dp))->str, "%02d:%02d",
+			((int)p.time) / 60, ((int)p.time) % 60);
 		g_draw(n);
 		old_p.time = p.time;
 	}
+	// PLAYER TIMEDATA
+	if (p.state != STOP && p.state != PAUSE) {
+		timedata_panel_update();		
+	}
 	// PLAYER SPECTOGRAM
 	/* DA RIVEDERE */
-	nbv = ZOOM_TO_BAR[fspect_panel.zoom];
+	nbv = ZOOM_TO_BAR[filt_spect_panel.zoom];
 	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
 	for (i=0; i<nbv; i++){
-		for (j= i*spv; j < (i+1)*spv; j++){
-			if(old_p.spectogram[j] != p.spectogram[j]){
-				fspect_bar_update(i);
-				memcpy(&old_p.spectogram[j], &p.spectogram[j], 
-				sizeof(float)*(spv - (j % spv)));
+		next = 0;
+		for (j=i*spv; (j < (i+1)*spv) && (next == 0) ;j++) {
+			if (old_p.filt_spect[j] != p.filt_spect[j]) {
+				fspect_bar_update(&filt_spect_panel, i, 
+					p.filt_spect);
+				memcpy(&old_p.filt_spect[j], &p.filt_spect[j], 
+					sizeof(float)*(spv - (j % spv)));
+				next = 1;
+			}
+		}
+	}
+	nbv = ZOOM_TO_BAR[orig_spect_panel.zoom];
+	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
+	for (i=0; i<nbv; i++){
+		next = 0;
+		for (j=i*spv; (j < (i+1)*spv) && (next == 0) ;j++) {
+			if (old_p.orig_spect[j] != p.orig_spect[j]) {
+				fspect_bar_update(&orig_spect_panel, i,
+					p.orig_spect);
+				memcpy(&old_p.orig_spect[j], &p.orig_spect[j], 
+					sizeof(float)*(spv - (j % spv)));
+				next = 1;
 			}
 		}
 	}
 	// PLAYER VOLUME
 	if(old_p.volume != p.volume){
+		// VOLUME SET BAR
 		n = &nodes[EQULZ_PANEL][VOL_BAR];
 		pix = -((float) (n->h * p.volume) / (float) 100) + n->y + n->h;
 		n = &nodes[EQULZ_PANEL][VOL_SBAR];
 		g_stretch(n, n->x, pix, n->w, n->h);
+		// VOLUME VAL LABEL
+		n = &nodes[EQULZ_PANEL][VOL_VAL_LBL];
+		sprintf(((text *)(n->dp))->str, "%3d", p.volume);
+		g_draw(n);
+
 		old_p.volume = p.volume;
 	}
 	// PLAYER EQUALIZ
 	for(int i = 0; i < PLAYER_NFILT; i++){
 		if(old_p.equaliz[i].gain != p.equaliz[i].gain){
+			// EQ SET BAR
 			n = &nodes[EQULZ_PANEL][LFRQ_BAR + i];
 			pix = - (n->h *  p.equaliz[i].gain) / 24 + n->y + n->h / 2;
 			n = &nodes[EQULZ_PANEL][LFRQ_SBAR + i];
 			g_stretch(n, n->x, pix, n->w, n->h);
+			//EQ GAIN LABEL
+			n = &nodes[EQULZ_PANEL][LFRQ_GAIN_LBL + i];
+			sprintf(((text *)(n->dp))->str, "%3d dB", 
+				(int) p.equaliz[i].gain);
+			g_draw(n);
+
 			old_p.equaliz[i].gain = p.equaliz[i].gain;
 		}
 	}
 }
+

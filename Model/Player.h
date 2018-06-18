@@ -12,8 +12,7 @@
  * 1 - Input to the player (Signal, Events)
  * 2 - Output of the player (State, Filters)
  *
- * @bug Deadline Miss for the filters events.
- *	Volume at maximum when signal FILT is dispatched.
+ * @bug 
  */
 
 
@@ -100,9 +99,14 @@ typedef struct{
 	char 		trackname[100];	/**< Track Name. */
 	float 		time;		/**< Actual reproducing time in sec. */
 	float 		duration;	/**< Total track duration in sec. */
-	float		spectogram[PLAYER_WINDOW_SIZE_CPX];
+	float		time_data;	/**< Timedata. */
+	int		bits;		/**< Bit depth of samples. */
+	float		orig_spect[PLAYER_WINDOW_SIZE_CPX];
+					/**< Spectrogram of the original 
+					window. (not filtered song) */
+	float		filt_spect[PLAYER_WINDOW_SIZE_CPX];
 					/**< Spectrogram of the reproducing 
-					window. */
+					window. (i.e. the filtered song) */
 	float		dynamic_range;	/**< Decibel range of each spect. 
 					term.*/
 	float		freq_spacing;	/**< Frequency spacing between 
@@ -114,7 +118,6 @@ typedef struct{
 }Player;
 
 extern Player p;
-extern pevent evt;
 
 /**
  * @brief	Initialize the Player p
@@ -122,7 +125,7 @@ extern pevent evt;
  * @param[in]	path	path were the song is located
  * @return		void
  */
-void pinit(const char *path);
+void pinit(const char *path) __attribute__((nonnull (1)));
 
 /**
  * @brief	dispatch the user events to the player
@@ -130,7 +133,7 @@ void pinit(const char *path);
  * @param[in]	sig	specify the signal (i.e. the event)
  * 			that has to be dispatched
  */
-void pdispatch();
+void pdispatch(pevent evt);
 
 /**
  * @brief	print on the stdout the player info
