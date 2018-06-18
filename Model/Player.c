@@ -7,9 +7,10 @@
  * This contains the implementation of an audio player with a band
  * equalization and other functions. It is implemented as a FSM
  * where events are dispatched to event-functions, it means each
- * event as a function.
+ * event has a function.
+ * On line filtering.
  *
- * @bug when change equalization during state != Play, it return in Play status
+ * @bug 
  */
 #include "Player.h"
 #include <stdio.h>
@@ -28,7 +29,6 @@
 #define phase(cpx)	(atan2f((cpx)[1], (cpx)[0])) 
 
 Player	p;	/**< The player struct. */
-pevent	evt;	/**< The input event. */
 
 static int	pos;		/**< Reproducing position. */
 static int 	v;		/**< Allegro voice associated to player. */
@@ -46,7 +46,7 @@ static void PlayerPause();
 static void PlayerStop();
 static void PlayerRewind();
 static void PlayerForward();
-//*****************************************************************************
+/******************************************************************************/
 
 /**
  * @brief	Obtain the file name given its path.
@@ -69,7 +69,7 @@ char	*name_;
  * @brief	Load an audio file given its path.
  *
  * @param[in]	path	path of the audio file.
- * @param[out]	s	pointer to the pointer where the adress of the SAMPLE
+ * @param[out]	s	pointer to the pointer where the address of the SAMPLE
  * 			struct returned by allegro lib is saved.
  */
 static void algr_load_smpl(const char * path, SAMPLE **s)
@@ -104,6 +104,13 @@ char	err[1024];	/**< Error string. */
 /**
  * @brief	Transform an Allegro SAMPLE piece of data to a machine float 
  *		stream.
+ *
+ * 
+ * The sample data are always in unsigned format. This means that would have 
+ * to XOR every sample value with 0x8000 to change the signedness. 
+ * Unfortunately allegro supports only 8 and 16 bits depth wav.
+ * @ref		https://liballeg.org/stabledocs/en/alleg001.html#SAMPLE
+ *
  * @param[in]	s	address of the Allegro SAMPLE struct.
  * @param[out]	buf	adress of the float stream.
  * @param[in]	off	offset by which start to convert.
@@ -114,12 +121,16 @@ static int sample_to_float(const SAMPLE *s, float *buf, unsigned int off,
 				unsigned int count)
 {
 int	j;	/**< sample data index */
+int32_t d32;	/**< buff to get the original signed value for 32bit depth. */
 int16_t	d16;	/**< buff to get the original signed value for 16bit depth. */
 int8_t	d8;	/**< buff to get the original signed value for 8bit depth. */
 
 	for (j = 0; j < count &&  j < s->len - off; j++) {
-		if (s->bits == 16) {
-			d16 = le16toh(((int16_t *)(s->data))[off+j]) ^ 0x8000;
+		if (s->bits == 32) {
+			d32 = le32toh(((uint32_t *)(s->data))[off+j]) ^ 0x80000000;
+			buf[j] = (float) d32;
+		} else if (s->bits == 16) {
+			d16 = le16toh(((uint16_t *)(s->data))[off+j]) ^ 0x8000;
 			buf[j] = (float) d16;
 		} else if (s->bits == 8) {
 			d8 = ((uint8_t *) (s->data))[off+j] ^ 0x80;
@@ -142,14 +153,38 @@ static int float_to_sample(const float *buf, SAMPLE *s, int off, int count)
 {
 int		j;	/**< sample data index */
 uint16_t	d16;	/**< buff to get the original signed value. */
+uint32_t	d32;	/**< buff to get the original signed value. */
 
 	for (j = 0; j < count && (off + j) < s->len; j++) {
-		if (s->bits == 16) {
-			d16 = ((int16_t) round(buf[j])) ^ 0x8000;
+		if (s->bits == 32) {
+			d32 = (int32_t)(round(buf[j])) ^ 0x80000000;
+			((uint32_t *) s->data)[off+j] = htole32(d32);
+		} else if (s->bits == 16) {
+			d16 = (int16_t)(round(buf[j])) ^ 0x8000,
 			((uint16_t *) s->data)[off+j] = htole16(d16);
+			/*
+			// float could be too high to be represented on a uint16
+			if (fabs(buf[j]) <= 0x7FFF){
+				d16 = (int16_t)(round(buf[j])) ^ 0x8000,
+				((uint16_t *) s->data)[off+j] = htole16(d16);
+			} else {
+				// Do nothing in case and notice to the user
+				printf("float sample too high\n");
+			}
+			*/
 		} else if (s->bits == 8) {
 			((uint8_t *) s->data)[off+j] = 
 				((uint8_t) round(buf[j])) ^ 0x80;
+			/*
+			// float could be too high to be represented on a uint8
+			if (fabs(buf[j]) <= 0x7E){
+				((uint8_t *) s->data)[off+j] = 
+					((int8_t) round(buf[j])) ^ 0x80;
+			} else {
+				// Do nothing in case and notice to the user
+				printf("float sample too high\n");
+			}
+			*/
 		}
 	}
 	return j;
@@ -223,11 +258,31 @@ fftwf_complex	inbuff[PLAYER_WINDOW_SIZE_CPX];	/**< Need a buffer, cause create
 /**
  * @brief	Update the player spectogram according to the current playing
  *		position. 
+ *
+ * For a good spectogram the timedata Window is first passed through the black-
+ * -man harris Window function, which better isolate frequency. After that com-
+ * -pute the FFT and than magnitude (euclidean distance of the real and imagina-
+ * -ry) parts for each term. In latter operation the maximum value among all 
+ * bins is computed as well.
+ * In order to provide a spectogram easy to visualize and understand the func-
+ * -tion normalizes the bins, that are actually random positive values.
+ * Normalization comes with first dividing all bins for maximum value computed
+ * before. Now bins are in the [0-1] range, but human ear hears using a loga-
+ * -rithmic scale (deciBel scale). So bins are now passed throgh a logaritmig 
+ * function, which brings the values between [-inf, 0]. 
+ * Take the values we've got from the dB calculation above. Add dynamic range 
+ * value to it. Divide by that same value  and nowhave a value ranging from
+ * -infinity to 1. This operation is done to bring values to the original sample
+ * bit depth scale. Finally clamping the lower end to 0 and multiplying by 100
+ * the bins are in the [0-100] scale.
+ *
+ * @param[in]	s
+ * @param[out]	spect
+ * @param[in]	pos
  */
-static void update_spectogram()
+static void update_spectogram(const SAMPLE *s, float spect[])
 {
-int		i;
-			/**< Array index. */
+int		i;	/**< Array index. */
 int		ret;	/**< Returned values. */
 float		timedata[PLAYER_WINDOW_SIZE];
 			/**< Sample Timedata buff. */
@@ -238,42 +293,34 @@ static int	max = 0;
 
 	i = (pos < PLAYER_WINDOW_SIZE / 4) ? PLAYER_WINDOW_SIZE/4 : pos; 
 
-	ret = sample_to_float((const SAMPLE *) filt_sample, timedata,
+	ret = sample_to_float((const SAMPLE *) s, timedata,
 		i - PLAYER_WINDOW_SIZE/4, PLAYER_WINDOW_SIZE);
-	// zero pad in case there aren't enough time data
+	// Zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
 		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
-	// apply blackman harris window f. to better isolate frequency
+	// Apply blackman harris window f. to better isolate frequency
 	for(i = 0; i < PLAYER_WINDOW_SIZE; i++)
 		timedata[i] *= blackman_harris(i);
 
 	FFT(timedata, freqdata);
-	// calculate magnitude, euclidean distance of the real and imaginary 
-	// parts and find the maximum value since last time the update_sp has 
-	// been called
+	// Magnitude, maximum value 
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
-		p.spectogram[i] = modulus(freqdata[i]);
-		if(p.spectogram[i] > max)
-			max = p.spectogram[i];
+		spect[i] = modulus(freqdata[i]);
+		if(spect[i] > max)
+			max = spect[i];
 	}
-	// normalize values in a [0-100] range
+	// Normalize values in a [0-100] range
 	for(i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++){
-		p.spectogram[i] /= max;
+		spect[i] /= max;
 		// Human ear hears using a logarithmic scale.
-		// This operation converts values to decibel scale.
-		// Values are between [-inf, 0];
-		p.spectogram[i] = 20.0f * log10f(p.spectogram[i]);
-		/*
-		 * Take the values we've got from the dB calculation above. 
-		 * Add dynamic range value to it. Divide by that same value 
-		 * and nowhave a value ranging from -infinity to 1.0f.
-		 */
-		p.spectogram[i] = (p.spectogram[i] + p.dynamic_range) 
+		spect[i] = 20.0f * log10f(spect[i]);
+		// Bring values to the original bit depth scale.
+		spect[i] = (spect[i] + p.dynamic_range) 
 			/ p.dynamic_range;
 		// Clamp the lower end to 0 and you now have a range from 0 to 1
-		if(p.spectogram[i] < 0) p.spectogram[i] = 0;
-		// multiply that by 100 and obtain a final 0 to 100 range.
-		p.spectogram[i] = (int) (p.spectogram[i] * 100);
+		if(spect[i] < 0) spect[i] = 0;
+		// Multiply that by 100 and obtain a final 0 to 100 range.
+		spect[i] = (int) (spect[i] * 100);
 	}
 }
 
@@ -288,20 +335,23 @@ void pinit(const char *path)
 
 	p.state = STOP;
 	p.time = pos = 0;
+	p.time_data = 0;
+	p.bits = filt_sample->bits;
 	get_trackname(p.trackname, path);
-	p.duration = ((float) (orig_sample->len / orig_sample->freq));
-	memset(p.spectogram, 0, sizeof(p.spectogram));
+	p.duration = ((float) (filt_sample->len / filt_sample->freq));
+	memset(p.filt_spect, 0, sizeof(p.filt_spect));
+	memset(p.orig_spect, 0, sizeof(p.orig_spect));
 	p.dynamic_range = 
-		fabsf(20.0f * log10f(1.0f / (1 << orig_sample->bits)));
+		fabsf(20.0f * log10f(1.0f / (1 << filt_sample->bits)));
 	printf("DYNAMIC RANGE = %f\n", p.dynamic_range);
-	p.freq_spacing = ((float) orig_sample->freq) / PLAYER_WINDOW_SIZE;
+	p.freq_spacing = ((float) filt_sample->freq) / PLAYER_WINDOW_SIZE;
 	p.volume = 255;
 	memcpy(p.equaliz,
 		(filter[4]){
-		{0, 20, 500},
-		{0, 500, 2000},
-		{0, 2000, 8000},
-		{0, 8000, 16000}},
+		{0, 1, 250},		// sub bass, bass
+		{0, 251, 2000},		// lower midrange, midrange
+		{0, 2001, 4000},	// upper midrange
+		{0, 4001, 20000}},	// presence and brilliance
 		sizeof(filter[4]));
 	// allocating the sample
 	v = allocate_voice(filt_sample);
@@ -315,7 +365,7 @@ void pinit(const char *path)
  *		corresponding to the right funtion. It also cleans the
  * 		event variable each time is called.
  */
-void pdispatch()
+void pdispatch(pevent evt)
 {
 
 	if (p.state != STOP && p.state != PAUSE){
@@ -324,11 +374,13 @@ void pdispatch()
 			PlayerStop();
 		} else {
 			pos = voice_get_position(v);
-			p.time = (((float)pos) / ((float)orig_sample->freq));
+			p.time = (((float)pos) / ((float)filt_sample->freq));
 			// Online Filtering
 			PlayerFilt();
 			// Spectogram update when reproducing
-			update_spectogram();
+			sample_to_float(filt_sample, &p.time_data, pos, 1); 
+			update_spectogram(orig_sample, p.orig_spect);
+			update_spectogram(filt_sample, p.filt_spect);
 		}
 	}
 	switch (evt.sig) {
@@ -348,43 +400,54 @@ void pdispatch()
 		PlayerForward();
 		break;
 	case VOL_SIG:
+		if (evt.val > 100) evt.val = 100;
+		if (evt.val < 0) evt.val = 0;
 		// convert [0-100] scale to [0-255] scale
 		voice_set_volume(v, (int) (evt.val * 2.55));
 		p.volume = (int) evt.val;
 		break;
 	case JUMP_SIG:
+		if (evt.val > p.duration) evt.val = p.duration;
+		if (evt.val < 0) evt.val = 0;
 		// convert time to position thanks to frequency
-		pos = evt.val * orig_sample->freq;
+		pos = evt.val * filt_sample->freq;
 		p.time = evt.val;
 		voice_set_position(v, pos);
 		break;
 	case FILTLOW_SIG:
+		if (evt.val > MAX_GAIN) evt.val = MAX_GAIN;
+		if (evt.val < MIN_GAIN) evt.val = MIN_GAIN;
 		p.equaliz[0].gain = evt.val;
 		break;
 	case FILTMED_SIG:
+		if (evt.val > MAX_GAIN) evt.val = MAX_GAIN;
+		if (evt.val < MIN_GAIN) evt.val = MIN_GAIN;
 		p.equaliz[1].gain = evt.val;
 		break;
 	case FILTMEDHIG_SIG:
+		if (evt.val > MAX_GAIN) evt.val = MAX_GAIN;
+		if (evt.val < MIN_GAIN) evt.val = MIN_GAIN;
 		p.equaliz[2].gain = evt.val;
 		break;
 	case FILTHIG_SIG:
+		if (evt.val > MAX_GAIN) evt.val = MAX_GAIN;
+		if (evt.val < MIN_GAIN) evt.val = MIN_GAIN;
 		p.equaliz[3].gain = evt.val;
 		break;
 	default:
 		break;
 	}
-	evt = (pevent) {0, 0};
 }
 
 /**
- * @brief	Filter the data next to actual position
+ * @brief	Filter the data nexts to actual position
  *
  * 
  */
 static void PlayerFilt()
 {
 int		j, k;	/**< Array indexes. */
-int		mod, ph;
+float		mod, ph;
 			/**< Module and phase of freq. bins. */
 int		pos_;	/**< Need for first values. */
 int		ret;	/**< Funtions return value. */
@@ -396,7 +459,7 @@ fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
 	pos_ = (pos < PLAYER_WINDOW_SIZE / 4) ? PLAYER_WINDOW_SIZE/4 : pos; 
 
 	ret = sample_to_float((const SAMPLE *) orig_sample, timedata, 
-		pos_ - PLAYER_WINDOW_SIZE/4, PLAYER_WINDOW_SIZE);
+		pos_ + PLAYER_WINDOW_SIZE / 2, PLAYER_WINDOW_SIZE);
 	// zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
 		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
@@ -412,9 +475,11 @@ fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
 				 *		I have to find the link beetwen
 				 *		dB gain and the multiplication 
 				 *		here;
+				 * DONE: 	MOD = 10 ^ (DB - 20)
 				 */
-				mod = modulus(freqdata[j]) * 
-					((0.0417f *  p.equaliz[k].gain) + 1);
+				mod = 20.0f * log10f(modulus(freqdata[j]));
+				mod += p.equaliz[k].gain;
+				mod = pow(10, mod/20);
 				ph = phase(freqdata[j]);
 				freqdata[j][0] = mod * cosf(ph);
 				freqdata[j][1] = mod * sinf(ph);
@@ -425,7 +490,7 @@ fftwf_complex	freqdata[PLAYER_WINDOW_SIZE_CPX];
 	IFFT(freqdata, timedata);
 	// copy the center of the Window
 	float_to_sample((const float *) &timedata[PLAYER_WINDOW_SIZE/4], 
-		filt_sample, pos_, PLAYER_WINDOW_SIZE/2);
+		filt_sample, pos_ + PLAYER_WINDOW_SIZE, PLAYER_WINDOW_SIZE/2);
 }
 
 /**
@@ -441,10 +506,11 @@ static void PlayerStop()
 	if (p.state == REWIND || p.state == FORWARD) {
 		if (p.state == REWIND)
 			voice_set_playmode(v, PLAYMODE_FORWARD);
-		voice_set_frequency(v, orig_sample->freq);
+		voice_set_frequency(v, filt_sample->freq);
 	}
 	voice_set_position(v, 0);
-	memset(p.spectogram, 0, sizeof(p.spectogram));
+	memset(p.filt_spect, 0, sizeof(p.filt_spect));
+	memset(p.orig_spect, 0, sizeof(p.orig_spect));
 	p.time = pos = 0;
 	p.state = STOP;
 }
@@ -462,7 +528,7 @@ static void PlayerPlay()
 			voice_set_position(v, pos);
 		}
 		// set frequency to the original freq.
-		voice_set_frequency(v, orig_sample->freq);
+		voice_set_frequency(v, filt_sample->freq);
 	}
 	p.state = PLAY;
 }
@@ -476,7 +542,7 @@ static void PlayerPause()
 		voice_stop(v);
 	}
 	if (p.state == REWIND || p.state == FORWARD){
-		voice_set_frequency(v, orig_sample->freq);
+		voice_set_frequency(v, filt_sample->freq);
 		if(p.state == REWIND){
 			voice_set_playmode(v, PLAYMODE_FORWARD);
 			voice_set_position(v, pos);
@@ -493,7 +559,10 @@ static void PlayerRewind()
 	if(p.state != REWIND && p.state != STOP){
 		voice_set_playmode(v, PLAYMODE_BACKWARD);
 		voice_set_position(v, pos);
-		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
+		voice_set_frequency(v, (((float) filt_sample->freq) * 1.25));
+	}
+	else {
+		voice_set_frequency(v, 1.25 *  voice_get_frequency(v));
 	}
 	//else if (p.tate == REWIND)
 	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
@@ -507,18 +576,16 @@ static void PlayerRewind()
  */
 static void PlayerForward()
 {
-	if (p.state != FORWARD){
-		voice_set_frequency(v, (((float) orig_sample->freq) * 1.25));
-	}
-	//else{
-	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
-	//}
-	if (p.state == STOP || p.state == PAUSE){
-		voice_start(v);
-	}
 	if (p.state == REWIND){
 		voice_set_playmode(v, PLAYMODE_FORWARD);
 		voice_set_position(v, pos);
+		voice_set_frequency(v, (((float) filt_sample->freq) * 1.25));
+	}
+	else {
+		voice_set_frequency(v, 1.25 * voice_get_frequency(v));
+	}
+	if (p.state == STOP || p.state == PAUSE){
+		voice_start(v);
 	}
 	p.state = FORWARD;
 }
