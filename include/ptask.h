@@ -11,9 +11,9 @@
  * void *task(void *arg)
  * {
  * <local state variables>
- * struct task_par	*tp;
+ * task_par_t	*tp;
  *	// retrieves the pointer to task_par
- *	tp = (struct task_par *)arg;
+ *	tp = (task_par_t *)arg;
  *	// retrieves the argument
  *	i = tp->arg;
  * 	set_period(tp);
@@ -37,34 +37,35 @@
  * defined in this library to obtain a periodic task behaviour.
  * NOTE: A structure for each thread is required.
  */
-struct task_par {
-	int		arg;		/**< Task argument. */
-	long int	wcet;		/**< Worst case execution time in us. */
-	int 		period;		/**< Period in ms. */
-	int 		deadline;	/**< Relative deadline in ms. */
-	int		priority;	/**< Task priority in [0; 99]. */
-	int		dmiss;		/**< No. of deadline misses. */
-	struct timespec	at;		/**< next activation time. */
-	struct timespec dl;		/**< absolute deadline. */
-};
+typedef struct
+{
+	int arg;			/**< Task argument. */
+	long int wcet;		/**< Worst case execution time in us. */
+	int period;			/**< Period in ms. */
+	int deadline;		/**< Relative deadline in ms. */
+	int priority;		/**< Task priority in [0; 99]. */
+	int dmiss;			/**< No. of deadline misses. */
+	struct timespec at; /**< next activation time. */
+	struct timespec dl; /**< absolute deadline. */
+} task_par_t;
 
 /**
  * @brief	set the period of a thread.
  * @param[in]	tp	pointer to the task_par structure of the calling thread.
  */
-void set_period(struct task_par *tp);
+void set_period(task_par_t *tp);
 
 /**
  * @brief	check for a deadline miss.
  * @param[in]	tp	pointer to the task_par structure of the calling thread.
  * @ret		returns 1 in case of deadline miss, otherwise returns 0.
  */
-int deadline_miss(struct task_par *tp);
+int deadline_miss(task_par_t *tp);
 
 /**
  * @brief	suspend the calling thread until the next activation.
  * @param[in]	tp	pointer to the task_par structure of the calling thread.
  */
-void wait_for_period(struct task_par *tp);
+void wait_for_period(task_par_t *tp);
 
 #endif

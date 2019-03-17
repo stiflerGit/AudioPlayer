@@ -1,11 +1,21 @@
-#include "graphic.h"
-#include <stdio.h>
-#include <string.h>
-#include <allegro.h>
-#include <assert.h>
+/**
+ * @file graphic.c
+ * @author Stefano Fiori (fioristefano.90@gmail.com)
+ * @brief 
+ * @version 0.1
+ * @date 2019-03-17
+ * 
+ */
+#include "view/graphic.h"
 
-#define handle_error(s) \
-	do{ perror(s); exit(EXIT_FAILURE);}while(0);
+#include <stdio.h>
+
+#include <assert.h>
+#include <string.h>
+
+#include <allegro.h>
+
+#include "defines.h"
 
 static void g_draw_text(Node *n);
 static void g_draw_img(Node *n);
@@ -22,7 +32,7 @@ static void g_clear_text(Node *n);
 char is_inside(Node *n, unsigned int x, unsigned int y)
 {
 	assert(n != NULL);
-	if(	x > n->x && x < n->x + n->w &&
+	if (x > n->x && x < n->x + n->w &&
 		y > n->y && y < n->y + n->h)
 		return 1;
 	return 0;
@@ -41,7 +51,8 @@ void g_draw(Node *n)
 {
 	assert(n != NULL);
 	scare_mouse();
-	switch(n->type){
+	switch (n->type)
+	{
 	case LINE:
 		line(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
 		break;
@@ -72,11 +83,12 @@ void g_draw(Node *n)
  *
  * @param[in]   n       address of the Object to clear.
  */
-void g_clear(Node * n)
+void g_clear(Node *n)
 {
 	assert(n != NULL);
 	scare_mouse();
-	switch(n->type){
+	switch (n->type)
+	{
 	case LINE:
 		line(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->bg);
 		break;
@@ -109,7 +121,7 @@ void g_clear(Node * n)
  * @param[in]	h	new height.
  */
 void g_stretch(Node *n, unsigned int x, unsigned int y,
-	unsigned int w, unsigned int h)
+			   unsigned int w, unsigned int h)
 {
 	assert(n != NULL);
 	g_clear(n);
@@ -132,13 +144,14 @@ void g_stretch(Node *n, unsigned int x, unsigned int y,
  */
 static void g_draw_text(Node *n)
 {
-text	*me;
+	text *me;
 
 	assert(n->type == TEXT && n->dp != NULL);
 	me = n->dp;
-	switch (me->align) {
+	switch (me->align)
+	{
 	case left:
-	/*
+		/*
 		if (n->bg != TSPRNT)
 			rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, 
 				n->bg);
@@ -146,22 +159,22 @@ text	*me;
 		textout_ex(screen, font, me->str, n->x, n->y, n->fg, n->bg);
 		break;
 	case centre:
-	/*
+		/*
 		if (n->bg != TSPRNT)
 			rectfill(screen, n->x - n->w / 2, n->y - n->h /2, 
 				n->x + n->w / 2, n->y + n->h / 2, n->bg);
 	*/
 		textout_centre_ex(screen, font, me->str, n->x, n->y, n->fg,
-				n->bg);
+						  n->bg);
 		break;
 	case right:
-	/*
+		/*
 		if (n->bg != TSPRNT)
 			rectfill(screen, n->x, n->y, n->x - n->w, n->y - n->h, 
 				n->bg);
 	*/
 		textout_right_ex(screen, font, me->str, n->x, n->y, n->fg,
-				n->bg);
+						 n->bg);
 		break;
 	default:
 		break;
@@ -177,21 +190,22 @@ text	*me;
  */
 static void g_clear_text(Node *n)
 {
-text	*me;
+	text *me;
 
 	assert(n->type == TEXT && n->dp != NULL);
 	me = n->dp;
-	switch (me->align) {
+	switch (me->align)
+	{
 	case left:
 		textout_ex(screen, font, me->str, n->x, n->y, n->bg, n->bg);
 		break;
 	case centre:
 		textout_centre_ex(screen, font, me->str, n->x, n->y, n->bg,
-				n->bg);
+						  n->bg);
 		break;
 	case right:
 		textout_right_ex(screen, font, me->str, n->x, n->y, n->bg,
-				n->bg);
+						 n->bg);
 		break;
 	default:
 		break;
@@ -213,20 +227,24 @@ text	*me;
  */
 static void g_draw_img(Node *n)
 {
-img	*me;
+	img *me;
 	assert(n->type == IMG && n->dp != NULL);
 	me = n->dp;
-	if (me->_img == NULL) {
+	if (me->_img == NULL)
+	{
 		me->_img = load_bitmap(me->path, NULL);
-		if (me->_img == NULL){
+		if (me->_img == NULL)
+		{
 			printf("load_bitmap: %s\n", me->path);
 			handle_error("load_bitmap");
 		}
 	}
-	if(n->bg != TSPRNT){
+	if (n->bg != TSPRNT)
+	{
 		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->bg);
 	}
-	if(n->fg != TSPRNT){
+	if (n->fg != TSPRNT)
+	{
 		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
 	}
 	stretch_sprite(screen, me->_img, n->x, n->y, n->w, n->h);

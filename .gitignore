@@ -53,3 +53,6 @@ dkms.conf
 
 # Ctag's file
 tags
+
+# vscode
+/.vscode/

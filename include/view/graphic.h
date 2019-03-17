@@ -1,8 +1,13 @@
 /**
- * @file	graphic.h
- * @author	Stefano Fiori
- * @date	26 May 2018
- * @brief	Provide a simple graphic framework for GUI
+ * @file graphic.h
+ * @author Stefano Fiori (fioristefano.90@gmail.com)
+ * @brief simple graphic framework
+ * @version 0.1
+ * @date 2019-03-17
+ * 
+ * Simple graphic framework. The framework provides a common interface
+ * for each kind of graphic object, to draw, clean and stretch the graphic
+ * objects.
  */
 #ifndef GRAPHIC_H_
 #define GRAPHIC_H_
@@ -10,23 +15,24 @@
 #include <allegro.h>
 
 // COLORS definition
-#ifndef	COLORS
-#define TSPRNT	(0xff00ff)	/**< TRANSPARENT. */
-#define BLACK	(0)
-#define WHITE	(0xffffff)
-#define RED	(0xff0000)
-#define GREEN	(0x00ff00)
-#define BLUE	(0x0000ff)
+#ifndef COLORS
+#define TSPRNT (0xff00ff) /**< TRANSPARENT. */
+#define BLACK (0)
+#define WHITE (0xffffff)
+#define RED (0xff0000)
+#define GREEN (0x00ff00)
+#define BLUE (0x0000ff)
 #endif
 
 /**
  * @brief	Node Type, types of graphic objects that can be managed.
  */
-typedef enum {
-	LINE,	/**< A one pixel line. */
-	FRAME,	/**< A one pixel rectangle. */
-	BAR,	/**< A rectangle filled with a color. */
-	TEXT,	/**< Text. */
+typedef enum
+{
+	LINE,  /**< A one pixel line. */
+	FRAME, /**< A one pixel rectangle. */
+	BAR,   /**< A rectangle filled with a color. */
+	TEXT,  /**< Text. */
 	IMG	/**< Image. */
 } NType;
 
@@ -40,12 +46,13 @@ typedef enum {
  * All object can become sensible to mouse click and hence raise 
  * an event thanks to the event variable.
  */
-typedef struct {
-	NType	type;		/**< Type of the Graphic Node. */
-	int	x, y, w, h;	/**< X Y coordinates, Width, Height. */
-	int	fg, bg;		/**< Foreground and background colors. */
-	char	evt;		/**< Envent associated to the mouse click. */
-	void	*dp;		/**< Pointer to more object-specific data. */
+typedef struct
+{
+	NType type;		/**< Type of the Graphic Node. */
+	int x, y, w, h; /**< X Y coordinates, Width, Height. */
+	int fg, bg;		/**< Foreground and background colors. */
+	char evt;		/**< Envent associated to the mouse click. */
+	void *dp;		/**< Pointer to more object-specific data. */
 } Node;
 
 /**
@@ -68,8 +75,8 @@ void g_clear(Node *n);
  * @param[in]   w       new width.                                              
  * @param[in]   h       new height. 
  */
-void g_stretch(Node *n, unsigned int x, unsigned int y, 
-	unsigned int width, unsigned int height);
+void g_stretch(Node *n, unsigned int x, unsigned int y,
+			   unsigned int width, unsigned int height);
 
 /**
  * @brief	Control if a 2D coordinate is inside an object area
@@ -87,33 +94,36 @@ char is_inside(Node *n, unsigned int x, unsigned int y);
 /**
  * @brief	enum for the alignment of text obj. 
  */
-typedef enum  {
-	left,	/**< Text start from the x,y coordinates. */
-	centre,	/**< x, y coordinates are the center of the text. */
-	right	/**< Text end in the x, y coordinates. */
-}alignment;
+typedef enum
+{
+	left,   /**< Text start from the x,y coordinates. */
+	centre, /**< x, y coordinates are the center of the text. */
+	right   /**< Text end in the x, y coordinates. */
+} alignment;
 
 /**
  * @brief	Text-specific data.
  *
  * When g_draw is called on a text-object ad dp is equal to NULL
  */
-typedef struct {
-	alignment 	align;		/**< Text alignment with respect to
+typedef struct
+{
+	alignment align; /**< Text alignment with respect to
 					the x,y coordinates. */
-	char 		str[1024];	/**< String of the text. */
+	char str[1024];  /**< String of the text. */
 } text;
 
 /*******************************************************************************
  *				IMAGE
  ******************************************************************************/
- /**
+/**
   * @brief	Image-specific data
   * When g_draw is called on a image-object ad dp is equal to NULL
   */
-typedef struct{
-	char		path[1024];	/**< Path of the image. */
-	BITMAP*		_img;		/**< Pointer to a 
+typedef struct
+{
+	char path[1024]; /**< Path of the image. */
+	BITMAP *_img;	/**< Pointer to a 
 					memory-loaded bitmap. */
 } img;
 

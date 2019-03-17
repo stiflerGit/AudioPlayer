@@ -6,6 +6,10 @@
  */
 #include "ptask.h"
 
+#ifndef NULL
+#define NULL ((void *)0)
+#endif //NULL
+
 /**
  * @brief	Copies a source time variable ts in a destination variable.
  * @param[out]	td	pointer to the destination time variable
@@ -24,10 +28,11 @@ static void time_copy(struct timespec *td, struct timespec ts)
  */
 static void time_add_ms(struct timespec *t, int ms)
 {
-	t->tv_sec += ms/1000;
-	t->tv_nsec += (ms%1000)*1000000;
+	t->tv_sec += ms / 1000;
+	t->tv_nsec += (ms % 1000) * 1000000;
 
-	if (t->tv_nsec > 1000000000) {
+	if (t->tv_nsec > 1000000000)
+	{
 		t->tv_nsec -= 1000000000;
 		t->tv_sec += 1;
 	}
@@ -41,10 +46,14 @@ static void time_add_ms(struct timespec *t, int ms)
  */
 static int time_cmp(struct timespec t1, struct timespec t2)
 {
-	if (t1.tv_sec > t2.tv_sec) return 1;
-	if (t1.tv_sec < t2.tv_sec) return -1;
-	if (t1.tv_nsec > t2.tv_nsec) return 1;
-	if (t1.tv_nsec < t2.tv_nsec) return -1;
+	if (t1.tv_sec > t2.tv_sec)
+		return 1;
+	if (t1.tv_sec < t2.tv_sec)
+		return -1;
+	if (t1.tv_nsec > t2.tv_nsec)
+		return 1;
+	if (t1.tv_nsec < t2.tv_nsec)
+		return -1;
 	return 0;
 }
 
@@ -54,10 +63,10 @@ static int time_cmp(struct timespec t1, struct timespec t2)
  * Reads the current time and computes the next activation time and the absolute 
  * deadline of the task. NOTE: the timer is not set to interrupt.
  */
-void set_period(struct task_par *tp)
+void set_period(task_par_t *tp)
 {
-struct timespec t;
-	
+	struct timespec t;
+
 	clock_gettime(CLOCK_MONOTONIC, &t);
 	time_copy(&(tp->at), t);
 	time_copy(&(tp->dl), t);
@@ -75,12 +84,13 @@ struct timespec t;
  * @return 	If the thread is still in execution when re‐activated, it 
  *		returns 1, otherwise returns 0.
  */
-int deadline_miss(struct task_par *tp)
+int deadline_miss(task_par_t *tp)
 {
-struct timespec now;
-	
+	struct timespec now;
+
 	clock_gettime(CLOCK_MONOTONIC, &now);
-	if (time_cmp(now, tp->dl) > 0) {
+	if (time_cmp(now, tp->dl) > 0)
+	{
 		tp->dmiss++;
 		return 1;
 	}
@@ -97,7 +107,7 @@ struct timespec now;
  *
  * @param[in]	tp	pointer to the task_param stucture of the calling thread
  */
-void wait_for_period(struct task_par *tp)
+void wait_for_period(task_par_t *tp)
 {
 	clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &(tp->at), NULL);
 	time_add_ms(&(tp->at), tp->period);
