@@ -1,3 +1,13 @@
+/**
+ * @file equalizer.c
+ * @author your name (you@domain.com)
+ * @brief implementation of an audio equalizer
+ * @version 0.1
+ * @date 2019-03-19
+ * 
+ * This file contains the implementation of an audio equalizer
+ * by means of four parallel peakingEQ filters
+ */
 #include "player/equalizer.h"
 
 #include <math.h>
@@ -26,7 +36,7 @@ typedef struct
     double ymem1, ymem2;
 } filtert_t;
 
-filtert_t eq_filt[NFILT]; /**< coefficients for each filter of the player. */
+static filtert_t eq_filt[NFILT]; /**< coefficients for each filter of the player. */
 
 /**
  * @brief init the coefficients, of a filter, that depend only from audio_frequency
@@ -105,8 +115,13 @@ static void filter_filtb(int i, float buf[], unsigned int count)
         buf[j] = filter_filt(i, buf[j]);
     }
 }
-/******************************************************************************/
 
+/**
+ * @brief initialize the equalizer
+ * 
+ * @param frequency sampling frequency of the audio file to equalize
+ * @return int 0 on success, -1 on fail.
+ */
 int equalizer_init(int freq)
 {
     if (freq < 0)
@@ -123,6 +138,13 @@ int equalizer_init(int freq)
     return 0;
 }
 
+/**
+ * @brief equalize a stream of sample
+ * 
+ * @param buf buffer containing stream data
+ * @param count number of sample in the buffer
+ * @return int number of sample equalized, -1 on error
+ */
 int equalizer_equalize(float buf[], unsigned int count)
 {
     if (audio_frequency < 0)
@@ -134,6 +156,13 @@ int equalizer_equalize(float buf[], unsigned int count)
     return count;
 }
 
+/**
+ * @brief set the gain of a filter in the equalizer
+ * 
+ * @param filt index of the filter whom set the gain
+ * @param gain gain value
+ * @return int the new gain of the filter, -1 on error.
+ */
 int equalizer_set_gain(int filt, float gain)
 {
     if (filt < 0 || filt > NFILT)
