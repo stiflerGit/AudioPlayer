@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * //TODO: more complete doc on file
+ * //TODO: more found doc on file
  * 
  */
 #include "controller.h"
@@ -141,6 +141,7 @@ static void *controller_run(void *arg)
 {
 	int pos, x, y;
 	int i, j;
+	char found;
 
 	set_period(&tp);
 
@@ -154,17 +155,18 @@ static void *controller_run(void *arg)
 			pos = mouse_pos;
 			x = pos >> 16;
 			y = pos & 0x0000ffff;
+			found = FALSE;
 			//printf("mouse button\tx: %d\tx: %d\n", x, y);
-			for (i = 0; i < NPANEL; i++)
+			for (i = 0; i < NPANEL && !found; i++)
 			{
 				if (is_inside(&(nodes[i][0]), x, y))
 				{
-					for (j = 1; j < nodes_size[i]; j++)
+					for (j = 1; j < nodes_size[i] && !found; j++)
 					{
 						if (is_inside(&nodes[i][j], x, y))
 						{
 							control(&nodes[i][j], x, y);
-							return;
+							found = TRUE;
 						}
 					}
 				}

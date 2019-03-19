@@ -16,6 +16,7 @@
 #include <stdint.h>
 //
 #include <assert.h>
+#include <error.h>
 #include <libgen.h>
 #include <math.h>
 #include <string.h>
@@ -106,7 +107,7 @@ static void algr_load_smpl(const char *path, SAMPLE **s)
 	pass = 1;
 	*s = load_sample(path);
 	if (!(*s))
-		handle_error("load_sample");
+		error_at_line(-1, ENOENT, __FILE__, __LINE__, "%s", path);
 
 	if ((*s)->bits > PLAYER_MAX_SMPL_SIZE * 8)
 	{
@@ -126,7 +127,7 @@ static void algr_load_smpl(const char *path, SAMPLE **s)
 	if (pass == 0)
 	{
 		destroy_sample(*s);
-		handle_error(err);
+		error(-1, 0, "%s", err);
 	}
 }
 
@@ -314,8 +315,6 @@ static void update_spectogram(const SAMPLE *s, float spect[])
  */
 void player_init(const char *path)
 {
-	int ret;
-
 	algr_load_smpl(path, &orig_sample);
 	algr_load_smpl(path, &filt_sample);
 
@@ -333,13 +332,11 @@ void player_init(const char *path)
 	p.volume = 255;
 	// initialize of Band EQ.
 	memset(p.eq_gain, 0, sizeof(p.eq_gain));
-	ret = equalizer_init(filt_sample->freq);
-	if (ret < 0)
-		handle_error("equalizer_init");
+	equalizer_init(filt_sample->freq);
 	// allocating the sample
 	v = allocate_voice(filt_sample);
 	if (v < 0)
-		handle_error("allocate_voice");
+		error_at_line(-1, 0, __FILE__, __LINE__, "no voices are available");
 	voice_set_playmode(v, PLAYMODE_PLAY);
 }
 
@@ -508,8 +505,6 @@ static void player_rewind()
 	{
 		voice_set_frequency(v, 1.25 * voice_get_frequency(v));
 	}
-	//else if (p.tate == REWIND)
-	//	voice_set_frequency(v, 2 * voice_get_frequency(v));
 	if (p.state == PAUSE)
 		voice_start(v);
 	p.state = REWIND;
@@ -535,6 +530,16 @@ static void player_forward()
 		voice_start(v);
 	}
 	p.state = FORWARD;
+}
+
+/**
+ * @brief player destructor
+ * 
+ */
+void player_xtor()
+{
+	destroy_sample(filt_sample);
+	destroy_sample(orig_sample);
 }
 
 /**
@@ -624,8 +629,10 @@ static void *player_run(void *arg)
 			player_dispatch_body(evt);
 
 		if (_player_exit)
+		{
+			player_xtor();
 			pthread_exit(NULL);
-
+		}
 		if (deadline_miss(&tp))
 			printf("PLAYER MISS\n");
 		wait_for_period(&tp);
@@ -635,7 +642,6 @@ static void *player_run(void *arg)
 
 /**
  * @brief notice the player thread to exit
- * 
  */
 void player_exit()
 {

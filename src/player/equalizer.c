@@ -10,6 +10,7 @@
  */
 #include "player/equalizer.h"
 
+#include <error.h>
 #include <math.h>
 
 static int audio_frequency;
@@ -120,13 +121,12 @@ static void filter_filtb(int i, float buf[], unsigned int count)
  * @brief initialize the equalizer
  * 
  * @param frequency sampling frequency of the audio file to equalize
- * @return int 0 on success, -1 on fail.
  */
-int equalizer_init(int freq)
+void equalizer_init(int freq)
 {
     if (freq < 0)
     {
-        return -1;
+        error_at_line(-1, 0, __FILE__, __LINE__, "audio frequency can't be negative: %d", freq);
     }
     audio_frequency = freq;
     for (int i = 0; i < NFILT; i++)
@@ -135,7 +135,6 @@ int equalizer_init(int freq)
         eq_filt[i].g = 0;
         filter_calc_coef(i);
     }
-    return 0;
 }
 
 /**

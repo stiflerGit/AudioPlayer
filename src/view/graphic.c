@@ -11,6 +11,7 @@
 #include <stdio.h>
 
 #include <assert.h>
+#include <error.h>
 #include <string.h>
 
 #include <allegro.h>
@@ -235,8 +236,8 @@ static void g_draw_img(Node *n)
 		me->_img = load_bitmap(me->path, NULL);
 		if (me->_img == NULL)
 		{
-			printf("load_bitmap: %s\n", me->path);
-			handle_error("load_bitmap");
+			// printf("load_bitmap: %s\n", me->path);
+			error_at_line(-1, 0, __FILE__, __LINE__, "couldn't load %s", me->path);
 		}
 	}
 	if (n->bg != TSPRNT)

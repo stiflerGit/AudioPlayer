@@ -128,8 +128,6 @@ static float avg(float *v, unsigned int size)
 	int i;
 	float val;
 
-	if (v == NULL)
-		handle_error("NULL pointer");
 	val = 0;
 	for (i = 0; i < size; i++)
 	{
