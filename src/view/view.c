@@ -523,10 +523,6 @@ static void view_xtor()
 	{
 		for (j = 0; j < nodes_size[i]; j++)
 		{
-			if (i == 2 && j == 1)
-			{
-				printf("I AM ");
-			}
 			g_destroy(&(nodes[i][j]));
 		}
 	}
