@@ -1,6 +1,6 @@
 /**
  * @file equalizer.c
- * @author your name (you@domain.com)
+ * @author Stefano Fiori (fioristefano.90@gmail.com)
  * @brief implementation of an audio equalizer
  * @version 0.1
  * @date 2019-03-19

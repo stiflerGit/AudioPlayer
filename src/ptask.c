@@ -2,13 +2,11 @@
  * @file	ptask.c
  * @author	Stefano Fiori
  * @date	28 May 2018
- * @brief	
+ * @brief support for periodic task implementation
  */
 #include "ptask.h"
 
-#ifndef NULL
-#define NULL ((void *)0)
-#endif //NULL
+#include "defines.h"
 
 /**
  * @brief	Copies a source time variable ts in a destination variable.
