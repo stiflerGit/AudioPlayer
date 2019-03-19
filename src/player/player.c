@@ -111,23 +111,23 @@ static void algr_load_smpl(const char *path, SAMPLE **s)
 
 	if ((*s)->bits > PLAYER_MAX_SMPL_SIZE * 8)
 	{
-		strcpy(err, "sample too big\n");
+		strcpy(err, "sample too big, ");
 		pass = 0;
 	}
 	if ((*s)->stereo >= PLAYER_MAX_NCH)
 	{
-		strcat(err, "too much channels\n");
+		strcat(err, "too much channels, ");
 		pass = 0;
 	}
 	if ((*s)->freq > PLAYER_MAX_FREQ)
 	{
-		strcat(err, "too much frequency per seconds\n");
+		strcat(err, "too much frequency per seconds");
 		pass = 0;
 	}
 	if (pass == 0)
 	{
 		destroy_sample(*s);
-		error(-1, 0, "%s", err);
+		error_at_line(-1, 0, __FILE__, __LINE__, "%s", err);
 	}
 }
 
