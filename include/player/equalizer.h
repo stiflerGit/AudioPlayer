@@ -22,7 +22,7 @@ extern const int equalizer_freq[NFILT]; /**< center frequency of each band of th
  * @param frequency sampling frequency of the audio file to equalize
  * @return int 0 on success, -1 on fail.
  */
-int equalizer_init(int frequency);
+void equalizer_init(int frequency);
 
 /**
  * @brief equalize a stream of sample

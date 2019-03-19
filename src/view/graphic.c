@@ -21,6 +21,7 @@
 static void g_draw_text(Node *n);
 static void g_draw_img(Node *n);
 static void g_clear_text(Node *n);
+static void g_destroy_image(Node *n);
 
 /**
  * @brief       Control if a 2D coordinate is inside an object area
@@ -50,7 +51,10 @@ char is_inside(Node *n, unsigned int x, unsigned int y)
  */
 void g_draw(Node *n)
 {
-	assert(n != NULL);
+	if (n == NULL)
+	{
+		error_at_line(0, 0, __FILE__, __LINE__, "node is NULL");
+	}
 	scare_mouse();
 	switch (n->type)
 	{
@@ -71,6 +75,29 @@ void g_draw(Node *n)
 		break;
 	default:
 		break;
+	}
+	unscare_mouse();
+}
+
+/**
+ * @brief Destroy the graphic object. 
+ * 
+ * Reclaim the additional memory allocated for the graphic node, to avoid
+ * memory leaks.
+ * 
+ * @param n address of the Object to destroy
+ */
+void g_destroy(Node *n)
+{
+	if (n == NULL)
+	{
+		error_at_line(0, 0, __FILE__, __LINE__, "node is NULL");
+	}
+	scare_mouse();
+	// the only type allocating additional memory is the image
+	if (n->type == IMG)
+	{
+		g_destroy_image(n);
 	}
 	unscare_mouse();
 }
@@ -249,4 +276,21 @@ static void g_draw_img(Node *n)
 		rectfill(screen, n->x, n->y, n->x + n->w, n->y + n->h, n->fg);
 	}
 	stretch_sprite(screen, me->_img, n->x, n->y, n->w, n->h);
+}
+
+/**
+ * @brief destroy the allegro bitmap struct
+ * 
+ * @param n address of the image struct
+ */
+static void g_destroy_image(Node *n)
+{
+	img *me;
+
+	me = n->dp;
+	if (me->_img != NULL)
+	{
+		// FIXME: ZOOMOUT CRASH HERE
+		// destroy_bitmap(me->_img);
+	}
 }

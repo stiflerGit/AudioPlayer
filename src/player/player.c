@@ -134,7 +134,6 @@ static void algr_load_smpl(const char *path, SAMPLE **s)
 /**
  * @brief	Transform an Allegro SAMPLE piece of data to a machine float 
  *		stream.
- *
  * 
  * The sample data are always in unsigned format. This means that would have 
  * to XOR every sample value with 0x8000 to change the signedness. 
@@ -171,13 +170,13 @@ static int sample_to_float(const SAMPLE *s, float *buf, unsigned int off,
 }
 
 /**
- * @brief	Transform a machine float stream to an Allegro SAMPLE piece of 
- * 		data.
- * @param[in]	buf	adress of the float stream.
- * @param[out]	s	address of the Allegro SAMPLE struct.
- * @param[in]	off	offset by which start to convert.
- * @param[in]	count	no. data to convert.
- * @return			no. data converted.
+ * @brief Transform a machine float stream to an Allegro SAMPLE piece of data
+ * 
+ * @param[in] buf address of the float stream.
+ * @param[out] s address of the Allegro SAMPLE struct.
+ * @param[in] off offset by which start to convert.
+ * @param[in] count no. data to convert.
+ * @return int no. data converted.
  */
 static int float_to_sample(const float *buf, SAMPLE *s, int off, int count)
 {
@@ -203,6 +202,7 @@ static int float_to_sample(const float *buf, SAMPLE *s, int off, int count)
 /**
  * @brief 	Blackman-Harris: window function that provides a far better
  *		frequency isolation in the frequency domain.
+ *
  * @param[in]	n	no. the sample in the window.
  * @return			the value computed.
  */

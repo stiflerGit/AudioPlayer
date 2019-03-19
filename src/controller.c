@@ -5,7 +5,8 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * //TODO: more found doc on file
+ * Implementation of the Controller thread. The main function, i.e.
+ * the controller routine executed periodically is the controller_run.
  * 
  */
 #include "controller.h"
@@ -133,15 +134,20 @@ pthread_t *controller_start(task_par_t *task_par)
 /**
  * @brief controller thread routine
  * 
+ * Periodically the controller check for user clicks, and, when it
+ * happens, find the graphic object clicked and the event that it should
+ * raise. Finally the correct event is dispatched to the player 
+ * 
  * @param arg pointer to the argument passed to the routine(actually task 
  * paramenters)
  * @return void* pointer to the returned variable of the routine
  */
 static void *controller_run(void *arg)
 {
-	int pos, x, y;
-	int i, j;
+	int pos, x, y; /**< coordinates of user click. */
+	int i, j;	  /**<array indexes. */
 	char found;
+	/**< bool value, true when the clicked graphic object has been found. */
 
 	set_period(&tp);
 
@@ -149,14 +155,13 @@ static void *controller_run(void *arg)
 	{
 		if (mouse_needs_poll())
 			poll_mouse();
-
+		//check for user clicks
 		if (mouse_b & 1)
 		{
 			pos = mouse_pos;
 			x = pos >> 16;
 			y = pos & 0x0000ffff;
 			found = FALSE;
-			//printf("mouse button\tx: %d\tx: %d\n", x, y);
 			for (i = 0; i < NPANEL && !found; i++)
 			{
 				if (is_inside(&(nodes[i][0]), x, y))

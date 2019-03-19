@@ -62,6 +62,16 @@ typedef struct
 void g_draw(Node *n);
 
 /**
+ * @brief Destroy the graphic object. 
+ * 
+ * Reclaim the additional memory allocated for the graphic node, to avoid
+ * memory leaks.
+ * 
+ * @param n address of the Object to destroy
+ */
+void g_destroy(Node *n);
+
+/**
  * @brief	Clear the screen from a graphic object
  * @param[in]	n	address of the Object to clear
  */

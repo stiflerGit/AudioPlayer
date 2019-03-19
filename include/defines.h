@@ -12,10 +12,15 @@
 
 #include <stdlib.h>
 
+#undef NULL
 #define NULL ((void *)0) /**< NULL definition. */
+#undef TRUE
+#define TRUE -1
+#undef FALSE
+#define FALSE 0
 
 /**
- * @brief print error and exit
+ * @brief print an error message and the errno, than exit
  * 
  */
 #define handle_error(s)                \

@@ -5,7 +5,10 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * //TODO: more complete doc on file
+ * This file defines the functions for initialize, start, and exit
+ * the controller thread, that is supposed to control and manages
+ * the user inputs. Possible user input types are only clicks in this
+ * case. It need player and view threads to be already started. 
  * 
  */
 #ifndef CONTROLLER_H_

@@ -356,7 +356,7 @@ static void control_draw()
  * bars, but only for pratically reasons.
  * Take the first copy of Player p.
  */
-int view_init()
+void view_init()
 {
 	int i, j; /**< Array indexes. */
 	Node *n;  /**< Pointer to a graphic Obj. */
@@ -392,8 +392,6 @@ int view_init()
 
 	install_mouse();
 	show_mouse(screen);
-
-	return 0;
 }
 
 /**
@@ -514,6 +512,32 @@ static void view_run_body()
 	}
 }
 
+/**
+ * @brief destroy all additional allocated memory from the view
+ * 
+ */
+static void view_xtor()
+{
+	int i, j; /**< Array indexes. */
+	for (i = 0; i < NPANEL; i++)
+	{
+		for (j = 0; j < nodes_size[i]; j++)
+		{
+			if (i == 2 && j == 1)
+			{
+				printf("I AM ");
+			}
+			g_destroy(&(nodes[i][j]));
+		}
+	}
+}
+
+/**
+ * @brief start the view thread
+ * 
+ * @param[in] task_par thread parameter with which start the view thread
+ * @return pthread_t* pointer to the view thread identificator
+ */
 pthread_t *view_start(task_par_t *task_par)
 {
 	struct sched_param mypar;
@@ -532,6 +556,12 @@ pthread_t *view_start(task_par_t *task_par)
 	return &tid;
 }
 
+/**
+ * @brief view thread routine
+ * 
+ * @param[in] arg  argument passed to the routine(actually nothing is passed)
+ * @return void* pointer to the variable returned by the thread(actually nothing)
+ */
 static void *view_run(void *arg)
 {
 	set_period(&tp);
@@ -541,6 +571,7 @@ static void *view_run(void *arg)
 		view_run_body();
 		if (_view_exit)
 		{
+			view_xtor();
 			pthread_exit(NULL);
 		}
 
@@ -553,6 +584,10 @@ static void *view_run(void *arg)
 	return NULL;
 }
 
+/**
+ * @brief notice the view thread that has to exit
+ * 
+ */
 void view_exit()
 {
 	_view_exit = 1;

@@ -20,12 +20,12 @@
  * It initialize all the Graphic objects in the GUI that either needs to
  * be initialized or is more pratical to initialize its dinamically
  */
-int view_init();
+void view_init();
 
 /**
  * @brief start the view thread
  * 
- * @param task_par    pointer to a struct definig task parameters(not mandatory)
+ * @param[in] task_par    pointer to a struct definig task parameters(not mandatory)
  * @return pthread_t* pointer to the thread identificator
  */
 pthread_t *view_start(task_par_t *tp);
