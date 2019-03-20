@@ -41,7 +41,7 @@ static task_par_t tp = {
 
 static pthread_t tid; /**< thread identifier of the controller. */
 
-static char _controller_exit = 0; /**< variable to notice the thread that has to exit. */
+static char controller_run_exit = 0; /**< variable to notice the thread that has to exit. */
 
 static void *controller_run(void *arg);
 
@@ -179,7 +179,7 @@ static void *controller_run(void *arg)
 			mouse_b = 0;
 		}
 
-		if (_controller_exit)
+		if (controller_run_exit)
 			pthread_exit(NULL);
 
 		if (deadline_miss(&tp))
@@ -197,5 +197,5 @@ static void *controller_run(void *arg)
  */
 void controller_exit()
 {
-	_controller_exit = 1;
+	controller_run_exit = 1;
 }

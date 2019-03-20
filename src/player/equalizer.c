@@ -148,6 +148,7 @@ int equalizer_equalize(float buf[], unsigned int count)
 {
     if (audio_frequency < 0)
     { // equalizer init not called
+        error_at_line(0, 0, __FILE__, __LINE__, "equalizer need to be init");
         return -1;
     }
     for (int i = 0; i < NFILT; i++)
@@ -166,10 +167,11 @@ int equalizer_set_gain(int filt, float gain)
 {
     if (filt < 0 || filt > NFILT)
     {
-        return -1;
+        error_at_line(-1, 0, __FILE__, __LINE__, "filter out of bound");
     }
     if (fabs(gain) > MAX_GAIN)
     {
+        error_at_line(0, 0, __FILE__, __LINE__, "gain out of bound");
         return -1;
     }
     eq_filt[filt].g = gain;

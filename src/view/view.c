@@ -10,6 +10,7 @@
 #include <stdio.h>
 
 #include <assert.h>
+#include <error.h>
 
 #include <allegro.h>
 
@@ -19,7 +20,7 @@
 
 #define MAXZOOM 5
 
-static pthread_t tid;
+static pthread_t tid; /**< view thread identifier. */
 
 static task_par_t tp = {
 	arg : 0,
@@ -27,8 +28,10 @@ static task_par_t tp = {
 	deadline : 80,
 	priority : 20,
 	dmiss : 0,
-};
-static char _view_exit = 0;
+}; /**< default task parameters. */
+
+static char view_run_exit = 0; /**< variable to notice the thread that has to exit. */
+
 static void *view_run(void *arg);
 
 static const int ZOOM_TO_BAR[6] = {210, 170, 140, 100, 70, 30};
@@ -37,23 +40,23 @@ static const int ZOOM_TO_BAR[6] = {210, 170, 140, 100, 70, 30};
 /**
  * @brief	Structure for frequency spectogram panel
  */
-struct fspect_panel_t
+typedef struct
 {
 	Node bars[227];		/**< Bars of the spectogram. */
 	unsigned char zoom; /**< Actual zoom of the panel.
 					It changes the no. bar shown. */
 	unsigned int ID_PANEL;
-};
+} fspect_panel_t;
 
-struct fspect_panel_t filt_spect_panel;
-struct fspect_panel_t orig_spect_panel;
+static fspect_panel_t filt_spect_panel;
+static fspect_panel_t orig_spect_panel;
 
 static Player_t old_p; /**< Previous player state. */
 
 /*******************************************************************************
  *				TIME DATA PANEL
  ******************************************************************************/
-static void timedata_panel_update()
+static void timedata_panel_draw()
 {
 	Node *n;
 	BITMAP *buf;
@@ -81,16 +84,85 @@ static void timedata_panel_update()
  *			FREQUENCY SPECTRUM PANEL
  ******************************************************************************/
 /**
+ * @brief	Compute the average value of a buffer.
+ * @param[in]	v	buffer of float falues.
+ * @param[in]	size	size of the buffer.
+ * @ret			average float value.
+ */
+static float avg(float *v, unsigned int size)
+{
+	int i;	 /**< array index. */
+	float val; /**< cumulative average value. */
+
+	val = 0;
+	for (i = 0; i < size; i++)
+	{
+		// we need to divide here, otherwise could overflow
+		val += v[i] / ((float)size);
+	}
+
+	return val;
+}
+
+/**
+ * @brief	Draw a spectogram view bar with respect to the player spectogram
+ *
+ * Draw a bar of the spectogram depending on the player spectogram values corres
+ * -ponding to that bar. Indeed, each spectogram view bar represent more than a
+ * player spectogram value, since view bars are lesser.
+ *
+ * @param[in]	i	No bar to draw.
+ */
+
+static void fspect_bar_update(fspect_panel_t *panel, unsigned int i,
+							  float spect[])
+{
+	int average;	   /**< average value of a piece of the spectogram */
+	int size;		   /**< size of the buffer on which calculate average*/
+	int height;		   /**< height of the bar. */
+	int delta;		   /**< Difference between old average and new average of the bar. */
+	int col;		   /**< Color with which to draw. */
+	int nbar;		   /**< No. bar actually showed in the spect.. Depends on zoom. */
+	Node *bar, *frame; /**< Pointer to the bar to update, and the frame of the panel */
+
+	nbar = ZOOM_TO_BAR[panel->zoom];
+	assert(i < nbar);
+	// the last bar could go out of bound.
+	size = (i < nbar) ? (PLAYER_WINDOW_SIZE_CPX / nbar) : (PLAYER_WINDOW_SIZE_CPX % nbar);
+	average = avg(&(spect[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]), size);
+	// since average is in the [0-100] range we can obtain easily the new
+	// average by multiplying for Panel Height
+	frame = &nodes[panel->ID_PANEL][0];
+	height = ((float)(frame->h * average)) / 100;
+	bar = &panel->bars[i];
+	// delta could be negative or positive.
+	delta = bar->h - height;
+	// depending on delta sign, we have to clear or draw a rect.
+	col = (delta < 0) ? bar->fg : bar->bg;
+	scare_mouse();
+	rectfill(screen, bar->x, bar->y, bar->x + bar->w, bar->y + delta, col);
+	unscare_mouse();
+	// if the bar draw on the buttons re-draws them
+	if (is_inside(&nodes[panel->ID_PANEL][ZOOMIN_BTN], bar->x, bar->y))
+		g_draw(&nodes[panel->ID_PANEL][ZOOMIN_BTN]);
+	if (is_inside(&nodes[panel->ID_PANEL][ZOOMOUT_BTN], bar->x, bar->y))
+		g_draw(&nodes[panel->ID_PANEL][ZOOMOUT_BTN]);
+	// update bar state
+	bar->y += delta;
+	bar->h = height;
+}
+
+/**
  * @brief	Initialize variables of each frequency spectrum bar
  *		that depends on zoom
  */
-static int fspect_panel_init(struct fspect_panel_t *panel)
+static int fspect_panel_init(fspect_panel_t *panel)
 {
 	int bar_x;   /**< X bars coordinate. */
 	int bar_col; /**< Color of the bar. */
 	int nbar;	/**< No. bars. */
 	int i;		 /**< Bars Array index. */
-	Node *frame;
+	Node *frame; /**< address of the frame of the panel. */
 
 	nbar = ZOOM_TO_BAR[panel->zoom];
 	// first node in a panel is the frame.
@@ -118,82 +190,38 @@ static int fspect_panel_init(struct fspect_panel_t *panel)
 }
 
 /**
- * @brief	Compute the average value of a buffer.
- * @param[in]	v	buffer of float falues.
- * @param[in]	size	size of the buffer.
- * @ret			average float value.
+ * @brief draw frequency spectrum panel(its bars)
+ * 
+ * @param panel pointer to the panel to draw
+ * @param new_spect new value(bins) of spectogram
+ * @param old_spect old value(bins) of spectogram
  */
-static float avg(float *v, unsigned int size)
+static void fspect_draw(fspect_panel_t *panel, float new_spect[], float old_spect[])
 {
-	int i;
-	float val;
+	int nbv;   /**< No. bars of the View (Spectogram). */
+	int spv;   /**< player Spectogram bar Per View bar. */
+	char next; /**< A boolean variable for jump to next spect bar update. */
+	int i, j;  /**< Array indexes for spectogram. */
 
-	val = 0;
-	for (i = 0; i < size; i++)
+	nbv = ZOOM_TO_BAR[panel->zoom];
+	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
+	for (i = 0; i < nbv; i++)
 	{
-		val += v[i];
+		next = 0;
+		for (j = i * spv; (j < (i + 1) * spv) && (next == 0); j++)
+		{
+			if (old_spect[j] != new_spect[j])
+			{
+				fspect_bar_update(panel, i, new_spect);
+				memcpy(&old_spect[j], &new_spect[j],
+					   sizeof(float) * (spv - (j % spv)));
+				next = 1;
+			}
+		}
 	}
-
-	return val / ((float)size);
 }
 
-/**
- * @brief	Draw a spectogram view bar with respect to the player spectogram
- *
- * Draw a bar of the spectogram depending on the player spectogram values corres
- * -ponding to that bar. Indeed, each spectogram view bar represent more than a
- * player spectogram value, since view bars are lesser.
- *
- * @param[in]	i	No bar to draw.
- */
-
-static void fspect_bar_update(struct fspect_panel_t *panel, unsigned int i,
-							  float spect[])
-{
-	int height; /**< New bar update. */
-	int delta;  /**< Difference between old height and new height of the bar. */
-	int col;	/**< Color with which to draw. */
-	int nbar;   /**< No. bar actually showed in the spect.. Depends on zoom. */
-	Node *n;	/**< Pointer to the right Spect. Bar. */
-
-	nbar = ZOOM_TO_BAR[panel->zoom];
-	assert(i < nbar);
-	// the last bar can overflow the player spectogram.
-	if (i < nbar)
-	{
-		height =
-			avg(&(spect[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
-				PLAYER_WINDOW_SIZE_CPX / nbar);
-	}
-	else
-	{
-		height =
-			avg(&(spect[i * (PLAYER_WINDOW_SIZE_CPX / nbar)]),
-				PLAYER_WINDOW_SIZE_CPX % nbar);
-	}
-	// since height is in the [0-100] range we can obtain easily the new
-	// height by multiplying for Panel Height
-	n = &nodes[panel->ID_PANEL][0];
-	height = n->h * height / 100;
-	n = &panel->bars[i];
-	// delta could be negative or positive.
-	delta = n->h - height;
-	// depending on delta sign, we have to clear or draw a rect.
-	col = (delta < 0) ? n->fg : n->bg;
-	scare_mouse();
-	rectfill(screen, n->x, n->y, n->x + n->w, n->y + delta, col);
-	unscare_mouse();
-	// if the bar draw on the buttons re-draws them
-	if (is_inside(&nodes[panel->ID_PANEL][ZOOMIN_BTN], n->x, n->y))
-		g_draw(&nodes[panel->ID_PANEL][ZOOMIN_BTN]);
-	if (is_inside(&nodes[panel->ID_PANEL][ZOOMOUT_BTN], n->x, n->y))
-		g_draw(&nodes[panel->ID_PANEL][ZOOMOUT_BTN]);
-	// update bar state
-	n->y += delta;
-	n->h = height;
-}
-
-int fspect_panel_zoomin(struct fspect_panel_t *panel)
+int fspect_panel_zoomin(fspect_panel_t *panel)
 {
 	if (panel->zoom <= MAXZOOM)
 	{
@@ -205,7 +233,7 @@ int fspect_panel_zoomin(struct fspect_panel_t *panel)
 	return -1;
 }
 
-int fspect_panel_zoomout(struct fspect_panel_t *panel)
+int fspect_panel_zoomout(fspect_panel_t *panel)
 {
 	if (panel->zoom > 0)
 	{
@@ -404,12 +432,8 @@ void view_init()
  */
 static void view_run_body()
 {
-	int i, j;  /**< Array indexes for spectogram. */
-	int nbv;   /**< No. bars of the View (Spectogram). */
-	int spv;   /**< player Spectogram bar Per View bar. */
-	char next; /**< A boolean variable for jump to next spect bar update. */
-	int pix;   /**< Pixel variable. */
-	Node *n;   /**< Pointer to a graphic object. */
+	int pix; /**< Pixel variable. */
+	Node *n; /**< Pointer to a graphic object. */
 
 	// PLAYER STATE
 	if (old_p.state != p.state)
@@ -438,44 +462,14 @@ static void view_run_body()
 	// PLAYER TIMEDATA
 	if (p.state != STOP && p.state != PAUSE)
 	{
-		timedata_panel_update();
+		timedata_panel_draw();
 	}
 	// PLAYER SPECTOGRAM
-	// TODO: da rivedere
-	nbv = ZOOM_TO_BAR[filt_spect_panel.zoom];
-	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
-	for (i = 0; i < nbv; i++)
-	{
-		next = 0;
-		for (j = i * spv; (j < (i + 1) * spv) && (next == 0); j++)
-		{
-			if (old_p.filt_spect[j] != p.filt_spect[j])
-			{
-				fspect_bar_update(&filt_spect_panel, i,
-								  p.filt_spect);
-				memcpy(&old_p.filt_spect[j], &p.filt_spect[j],
-					   sizeof(float) * (spv - (j % spv)));
-				next = 1;
-			}
-		}
-	}
-	nbv = ZOOM_TO_BAR[orig_spect_panel.zoom];
-	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
-	for (i = 0; i < nbv; i++)
-	{
-		next = 0;
-		for (j = i * spv; (j < (i + 1) * spv) && (next == 0); j++)
-		{
-			if (old_p.orig_spect[j] != p.orig_spect[j])
-			{
-				fspect_bar_update(&orig_spect_panel, i,
-								  p.orig_spect);
-				memcpy(&old_p.orig_spect[j], &p.orig_spect[j],
-					   sizeof(float) * (spv - (j % spv)));
-				next = 1;
-			}
-		}
-	}
+	// FIXME: if I pass p.xxx_spect, the player update the spect in the meantime
+	// FIXME: view try to render it and we have strange behaviour
+	// FIXME: problem is not in the player: verified with the assert
+	fspect_draw(&filt_spect_panel, p.filt_spect, old_p.filt_spect);
+	fspect_draw(&orig_spect_panel, p.orig_spect, old_p.orig_spect);
 	// PLAYER VOLUME
 	if (old_p.volume != p.volume)
 	{
@@ -565,7 +559,7 @@ static void *view_run(void *arg)
 	while (1)
 	{
 		view_run_body();
-		if (_view_exit)
+		if (view_run_exit)
 		{
 			view_xtor();
 			pthread_exit(NULL);
@@ -586,5 +580,5 @@ static void *view_run(void *arg)
  */
 void view_exit()
 {
-	_view_exit = 1;
+	view_run_exit = 1;
 }

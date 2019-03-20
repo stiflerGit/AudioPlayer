@@ -281,7 +281,7 @@ static void update_spectogram(const SAMPLE *s, float spect[])
 	// Zero pad in case there aren't enough time data
 	if (ret < PLAYER_WINDOW_SIZE)
 		memset(&timedata[ret], 0, PLAYER_WINDOW_SIZE - ret);
-	// Apply blackman harris window f. to better isolate frequency
+	// Apply blackman harris window f. to better isolate frequencies
 	for (i = 0; i < PLAYER_WINDOW_SIZE; i++)
 		timedata[i] *= blackman_harris(i);
 
@@ -307,6 +307,8 @@ static void update_spectogram(const SAMPLE *s, float spect[])
 		// Multiply that by 100 and obtain a final 0 to 100 range.
 		spect[i] = (int)(spect[i] * 100);
 	}
+	// for (i = 0; i < PLAYER_WINDOW_SIZE_CPX; i++)
+	// 	assert(spect[i] <= 100);
 }
 
 /**

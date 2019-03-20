@@ -5,7 +5,8 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * //TODO: 
+ * This header contains a simple interface to interact with
+ * the view thread.
  */
 #ifndef VIEW_H_
 #define VIEW_H_
