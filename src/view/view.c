@@ -24,9 +24,9 @@ static pthread_t tid; /**< view thread identifier. */
 
 static task_par_t tp = {
 	arg : 0,
-	period : 80,
-	deadline : 80,
-	priority : 20,
+	period : 50,
+	deadline : 50,
+	priority : 30,
 	dmiss : 0,
 }; /**< default task parameters. */
 
@@ -91,17 +91,17 @@ static void timedata_panel_draw()
  */
 static float avg(float *v, unsigned int size)
 {
-	int i;	 /**< array index. */
-	float val; /**< cumulative average value. */
+	int i;				   /**< array index. */
+	long double numerator; /**< cumulative numerator value. */
 
-	val = 0;
+	numerator = 0;
 	for (i = 0; i < size; i++)
 	{
 		// we need to divide here, otherwise could overflow
-		val += v[i] / ((float)size);
+		numerator += v[i];
 	}
 
-	return val;
+	return numerator / size;
 }
 
 /**
@@ -434,7 +434,9 @@ static void view_run_body()
 {
 	int pix; /**< Pixel variable. */
 	Node *n; /**< Pointer to a graphic object. */
+	Player_t p;
 
+	p = player_copy();
 	// PLAYER STATE
 	if (old_p.state != p.state)
 	{

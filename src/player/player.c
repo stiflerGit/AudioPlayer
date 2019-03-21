@@ -54,7 +54,7 @@ static pthread_t tid; /**< player thread identifier. */
 static player_event_t player_event;		   /**< event for dispatch. */
 static pthread_mutex_t player_event_mutex; /**< mutex for the event. */
 
-static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
+static char player_run_exit = 0; /**< variable to notice the thread that has to exit. */
 
 /**
  * @brief player thread routine
@@ -586,6 +586,8 @@ pthread_t *player_start(task_par_t *task_par)
 	return &tid;
 }
 
+pthread_mutex_t mutex_copy = PTHREAD_MUTEX_INITIALIZER;
+
 /**
  * @brief player thread routine
  * 
@@ -602,6 +604,7 @@ static void *player_run(void *arg)
 
 	while (1)
 	{
+		pthread_mutex_lock(&mutex_copy);
 		if (p.state != STOP && p.state != PAUSE)
 		{
 			// allegro set position = -1 when the song reached the end.
@@ -629,8 +632,9 @@ static void *player_run(void *arg)
 		// event different from empty
 		if (evt.sig != 0)
 			player_dispatch_body(evt);
+		pthread_mutex_unlock(&mutex_copy);
 
-		if (_player_exit)
+		if (player_run_exit)
 		{
 			player_xtor();
 			pthread_exit(NULL);
@@ -647,5 +651,14 @@ static void *player_run(void *arg)
  */
 void player_exit()
 {
-	_player_exit = 1;
+	player_run_exit = 1;
+}
+
+Player_t player_copy()
+{
+	Player_t copy;
+	pthread_mutex_lock(&mutex_copy);
+	memcpy(&copy, &p, sizeof(Player_t));
+	pthread_mutex_unlock(&mutex_copy);
+	return copy;
 }

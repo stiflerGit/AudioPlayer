@@ -132,4 +132,6 @@ void player_dispatch(player_event_t evt);
  */
 void player_exit();
 
+Player_t player_copy();
+
 #endif /* PLAYER_H_ */
