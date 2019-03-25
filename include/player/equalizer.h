@@ -10,9 +10,9 @@
 #ifndef EQUALIZER_H
 #define EQUALIZER_H
 
-#define NFILT 4 /**< Number of the filters of the equalizer*/
-
-#define MAX_GAIN 20 /**< Maximum Decibel gain of filters. */
+#define NFILT 4        /**< Number of the filters of the equalizer*/
+#define MAX_GAIN 20.0f /**< Maximum deciBel gain of filters. */
+#define BW 1.0f        /**< bandwidth of filters in octaves. */
 
 extern const int equalizer_freq[NFILT]; /**< center frequency of each band of the EQ. */
 
