@@ -12,8 +12,8 @@
  */
 #include "player/player.h"
 // standards libraries
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 //
 #include <assert.h>
 #include <error.h>
@@ -21,8 +21,8 @@
 #include <math.h>
 #include <string.h>
 //
-#include <fftw3.h>
 #include <allegro.h>
+#include <fftw3.h>
 
 #include "defines.h"
 #include "player/equalizer.h"
@@ -329,7 +329,7 @@ void player_init(const char *path)
 	p.dynamic_range =
 		fabsf(20.0f * log10f(1.0f / (1 << filt_sample->bits)));
 	p.freq_spacing = ((float)filt_sample->freq) / PLAYER_WINDOW_SIZE;
-	p.volume = 255;
+	p.volume = 100;
 	// initialize of Band EQ.
 	memset(p.eq_gain, 0, sizeof(p.eq_gain));
 	equalizer_init(filt_sample->freq);
@@ -434,6 +434,8 @@ static void player_filt()
  */
 static void player_stop()
 {
+	if (p.state == STOP)
+		return;
 	if (p.state != PAUSE)
 		voice_stop(v);
 	if (p.state == REWIND || p.state == FORWARD)
@@ -474,10 +476,10 @@ static void player_play()
  */
 static void player_pause()
 {
-	if (p.state != STOP && p.state != PAUSE)
-	{
+	if (p.state == STOP)
+		return;
+	if (p.state != PAUSE)
 		voice_stop(v);
-	}
 	if (p.state == REWIND || p.state == FORWARD)
 	{
 		voice_set_frequency(v, filt_sample->freq);
@@ -495,7 +497,9 @@ static void player_pause()
  */
 static void player_rewind()
 {
-	if (p.state != REWIND && p.state != STOP)
+	if (p.state == STOP)
+		return;
+	if (p.state != REWIND)
 	{
 		voice_set_playmode(v, PLAYMODE_BACKWARD);
 		voice_set_position(v, pos);

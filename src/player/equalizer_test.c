@@ -13,6 +13,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <sys/stat.h>
 
 #include <cmocka.h>
 
@@ -21,12 +22,29 @@
 
 #define assert mock_assert
 
+#define TEST_RESULTS_DIR "/tmp/github.com/stiflerGit/AudioPlayer/test/player/"
+
+void init()
+{
+	struct stat st = {0};
+	int ret;
+	if (stat(TEST_RESULTS_DIR, &st) == -1)
+	{
+		ret = mkdir(TEST_RESULTS_DIR, 0700);
+		if (ret < 0)
+		{
+			perror("making test dir");
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
 typedef struct
 {
 	int signal_freq;
 	int sampling_freq;
 	int size;
-	double *data;
+	float *data;
 } signal_t;
 
 /**
@@ -37,21 +55,21 @@ typedef struct
  * @param duration in milliseconds
  * @return signal_t* pointer to the new signal
  */
-signal_t *signal_new(double amplitude, double signal_freq, double sampling_freq, double duration)
+signal_t *signal_new(float amplitude, float signal_freq, float sampling_freq, float duration)
 {
-	double time_period;
-	double y;
+	float time_period;
+	float y;
 	signal_t *signal;
 	signal = malloc(sizeof(signal_t));
 	(*signal).signal_freq = signal_freq;
 	(*signal).sampling_freq = sampling_freq;
-	(*signal).size = (duration / 1000.0f * ((double)sampling_freq));
-	(*signal).data = malloc((*signal).size * sizeof(double));
+	(*signal).size = (duration / 1000.0f * ((float)sampling_freq));
+	(*signal).data = malloc((*signal).size * sizeof(float));
 
 	time_period = 1.0f / sampling_freq;
 	for (int i = 0; i < (*signal).size; i++)
 	{
-		y = cos(2.0f * M_PI * signal_freq * i * time_period);
+		y = sinf(2.0f * M_PI * signal_freq * i * time_period);
 		(*signal).data[i] = amplitude * y;
 	}
 	return signal;
@@ -64,11 +82,11 @@ void signal_delete(signal_t *signal)
 	signal = NULL;
 }
 
-#define SIGNAL_PRINT(s) \
-	do                    \
-	{                     \
-		printf(#s);         \
-		signal_print(s);    \
+#define SIGNAL_PRINT(s)  \
+	do                   \
+	{                    \
+		printf(#s);      \
+		signal_print(s); \
 	} while (0)
 
 void signal_print(const signal_t *signal)
@@ -96,8 +114,8 @@ signal_t *signal_clone(const signal_t *src)
 	(*dst).signal_freq = (*src).signal_freq;
 	(*dst).sampling_freq = (*src).sampling_freq;
 	(*dst).size = (*src).size;
-	(*dst).data = malloc((*src).size * sizeof(double));
-	memcpy((*dst).data, (*src).data, sizeof(double) * (*src).size);
+	(*dst).data = malloc((*src).size * sizeof(float));
+	memcpy((*dst).data, (*src).data, sizeof(float) * (*src).size);
 	return dst;
 }
 
@@ -110,25 +128,29 @@ static void test_equalizer_equalize_no_gain(void **state)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
-			signal_new(1.0f, 250, 44100, 100),
-			signal_new(1.0f, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1.0f, 250, 44100, 100),
+		signal_new(1.0f, 2000, 44100, 100),
+		signal_new(1.0f, 5000, 44100, 100),
+		signal_new(1.0f, 10000, 44100, 100),
 	};
 	signal_t *amplified_signals[NFILT] = {
-			signal_new(1, 250, 44100, 100),
-			signal_new(1, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1.0f, 250, 44100, 100),
+		signal_new(1.0f, 2000, 44100, 100),
+		signal_new(1.0f, 5000, 44100, 100),
+		signal_new(1.0f, 10000, 44100, 100),
 	};
 
 	equalizer_init(44100);
 	for (int i = 0; i < NFILT; i++)
 	{
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
-		// I expect everything is untouched
-		assert_memory_equal((*amplified_signals[i]).data, (*source_signals[i]).data,
-												(*amplified_signals[i]).size * sizeof(double));
+		// I expect everything is almost(noise) untouched
+		for (int k = 0; k < 4410; k++)
+		{
+			assert_true(fabs((*amplified_signals[i]).data[k] - (*source_signals[i]).data[k]) < 0.1f);
+		}
+		// assert_memory_equal((*amplified_signals[i]).data, (*source_signals[i]).data,
+		// 					(*amplified_signals[i]).size * sizeof(float));
 	}
 	for (int i = 0; i < NFILT; i++)
 	{
@@ -141,16 +163,16 @@ static void test_equalizer_equalize_modify(void **state)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
-			signal_new(1, 250, 44100, 100),
-			signal_new(1, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1, 250, 44100, 100),
+		signal_new(1, 2000, 44100, 100),
+		signal_new(1, 5000, 44100, 100),
+		signal_new(1, 10000, 44100, 100),
 	};
 	signal_t *amplified_signals[NFILT] = {
-			signal_new(1, 250, 44100, 100),
-			signal_new(1, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1, 250, 44100, 100),
+		signal_new(1, 2000, 44100, 100),
+		signal_new(1, 5000, 44100, 100),
+		signal_new(1, 10000, 44100, 100),
 	};
 
 	equalizer_init(44100);
@@ -164,7 +186,7 @@ static void test_equalizer_equalize_modify(void **state)
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect everything is modified
 		assert_memory_not_equal((*amplified_signals[i]).data, (*source_signals[i]).data,
-														(*amplified_signals[i]).size * sizeof(double));
+								(*amplified_signals[i]).size * sizeof(float));
 	}
 	for (int i = 0; i < NFILT; i++)
 	{
@@ -177,16 +199,16 @@ static void test_equalizer_equalize_band_isolation(void **state)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
-			signal_new(1, 250, 44100, 100),
-			signal_new(1, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1, 250, 44100, 100),
+		signal_new(1, 2000, 44100, 100),
+		signal_new(1, 5000, 44100, 100),
+		signal_new(1, 10000, 44100, 100),
 	};
 	signal_t *amplified_signals[NFILT] = {
-			signal_new(1, 250, 44100, 100),
-			signal_new(1, 2000, 44100, 100),
-			signal_new(1, 5000, 44100, 100),
-			signal_new(1, 10000, 44100, 100),
+		signal_new(1, 250, 44100, 100),
+		signal_new(1, 2000, 44100, 100),
+		signal_new(1, 5000, 44100, 100),
+		signal_new(1, 10000, 44100, 100),
 	};
 
 	equalizer_init(44100);
@@ -217,25 +239,41 @@ static void test_equalizer_equalize_band_isolation(void **state)
 
 void test_equalizer_equalize_band_gain(void **state)
 {
+	int i;
+	char path[256], filename[100];
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
-			signal_new(100, 80, 44100, 100),
-			signal_new(100, 2000, 44100, 100),
-			signal_new(100, 5000, 44100, 100),
-			signal_new(100, 10000, 44100, 100),
+		signal_new(1.0f, 300, 44100, 100),
+		signal_new(1.0f, 2000, 44100, 100),
+		signal_new(1.0f, 5000, 44100, 100),
+		signal_new(1.0f, 10000, 44100, 100),
 	};
 	signal_t *amplified_signals[NFILT] = {
-			signal_new(100, 80, 44100, 100),
-			signal_new(100, 2000, 44100, 100),
-			signal_new(100, 5000, 44100, 100),
-			signal_new(100, 10000, 44100, 100),
+		signal_new(1.0f, 300, 44100, 100),
+		signal_new(1.0f, 2000, 44100, 100),
+		signal_new(1.0f, 5000, 44100, 100),
+		signal_new(1.0f, 10000, 44100, 100),
 	};
 	signal_t *isolated_signals[NFILT] = {
-			signal_new(100, 80, 44100, 100),
-			signal_new(100, 2000, 44100, 100),
-			signal_new(100, 5000, 44100, 100),
-			signal_new(100, 10000, 44100, 100),
+		signal_new(1.0f, 300, 44100, 100),
+		signal_new(1.0f, 2000, 44100, 100),
+		signal_new(1.0f, 5000, 44100, 100),
+		signal_new(1.0f, 10000, 44100, 100),
 	};
+	FILE *test_results_files[NFILT];
+	for (i = 0; i < NFILT; i++)
+	{
+		strcpy(path, TEST_RESULTS_DIR);
+		sprintf(filename, "signal_of_%d_Hz.dat", (*source_signals[i]).signal_freq);
+		strcat(path, filename);
+
+		test_results_files[i] = fopen(path, "w+");
+		if (test_results_files[i] == NULL)
+		{
+			perror("creating the file ");
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	equalizer_init(44100);
 
@@ -264,17 +302,17 @@ void test_equalizer_equalize_band_gain(void **state)
 		// I expect the amplified signal is always greated than the isolated
 		for (int k = 0; k < (*amplified_signals[i]).size; k++)
 		{
-			if (fabs((*amplified_signals[i]).data[k]) < fabs((*source_signals[i]).data[k]))
-			{
-				printf("signal n: %d, sample n: %d\n", i, k);
-				printf("%f\t%f\n", (*amplified_signals[i]).data[k], (*source_signals[i]).data[k]);
-			}
-			// assert_true(fabs((*amplified_signals[i]).data[k]) >= fabs((*source_signals[i]).data[k]));
+			fprintf(test_results_files[i], "%f\t%f\t%f\n",
+					(*source_signals[i]).data[k],
+					(*isolated_signals[i]).data[k],
+					(*amplified_signals[i]).data[k]);
+			// look at theese signals in a plot
 		}
 	}
 	// free memory
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < 1; i++)
 	{
+		fclose(test_results_files[i]);
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
 		signal_delete(isolated_signals[i]);
@@ -283,11 +321,12 @@ void test_equalizer_equalize_band_gain(void **state)
 
 int main()
 {
+	init();
 	const struct CMUnitTest tests[] = {
-			cmocka_unit_test(test_equalizer_equalize_no_gain),
-			cmocka_unit_test(test_equalizer_equalize_modify),
-			cmocka_unit_test(test_equalizer_equalize_band_isolation),
-			cmocka_unit_test(test_equalizer_equalize_band_gain),
+		cmocka_unit_test(test_equalizer_equalize_no_gain),
+		cmocka_unit_test(test_equalizer_equalize_modify),
+		cmocka_unit_test(test_equalizer_equalize_band_isolation),
+		cmocka_unit_test(test_equalizer_equalize_band_gain),
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
