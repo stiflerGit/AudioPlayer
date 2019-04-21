@@ -31,7 +31,25 @@
 #define modulus(cpx) (sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
 #define phase(cpx) (atan2f((cpx)[1], (cpx)[0]))
 
-Player_t p; /**< The player struct. */
+typedef struct
+{
+	player_state_t state; /**< The player State. */
+	char trackname[100];  /**< Track Name. */
+	float time;			  /**< Actual reproducing time in sec. */
+	float duration;		  /**< Total track duration in sec. */
+	float time_data;	  /**< Timedata. */
+	int bits;			  /**< Bit depth of samples. */
+	float orig_spect[PLAYER_WINDOW_SIZE_CPX];
+	/**< Spectrogram of the original window. (not filtered song) */
+	float filt_spect[PLAYER_WINDOW_SIZE_CPX];
+	/**< Spectrogram of the reproducing window. (i.e. the filtered song) */
+	float dynamic_range;		 /**< Decibel range of each spect. term.*/
+	float freq_spacing;			 /**< Frequency spacing between each spect. term */
+	unsigned int volume;		 /**< Reproducing volume [0-100]. */
+	float eq_gain[PLAYER_NFILT]; /**< gain at each frequency. */
+} Player_t;
+
+static Player_t p; /**< The player struct. */
 
 static int pos;				/**< Reproducing position. */
 static int filt_pos = 0;	/**< Filtering position. */
@@ -51,8 +69,11 @@ static task_par_t tp = {
 
 static pthread_t tid; /**< player thread identifier. */
 
-static player_event_t player_event;		   /**< event for dispatch. */
-static pthread_mutex_t player_event_mutex; /**< mutex for the event. */
+static player_event_t player_event; /**< event for dispatch. */
+static pthread_mutex_t player_mutex =
+	PTHREAD_MUTEX_INITIALIZER; /**< mutex to access player */
+static pthread_mutex_t player_event_mutex =
+	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the event. */
 
 static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
 
@@ -400,6 +421,10 @@ static void player_dispatch_body(player_event_t evt)
 		p.eq_gain[evt.sig - FILTLOW_SIG] = ret;
 		filt_pos = pos;
 		break;
+	case EXIT_SIG:
+		destroy_sample(filt_sample);
+		destroy_sample(orig_sample);
+		pthread_exit(NULL);
 	default:
 		break;
 	}
@@ -537,16 +562,6 @@ static void player_forward()
 }
 
 /**
- * @brief player destructor
- * 
- */
-void player_xtor()
-{
-	destroy_sample(filt_sample);
-	destroy_sample(orig_sample);
-}
-
-/**
  * @brief dispatch an event, external interface
  * 
  * This store the given event in the global event variable. 
@@ -604,6 +619,7 @@ static void *player_run(void *arg)
 
 	while (1)
 	{
+		pthread_mutex_lock(&player_mutex);
 		if (p.state != STOP && p.state != PAUSE)
 		{
 			// allegro set position = -1 when the song reached the end.
@@ -623,20 +639,20 @@ static void *player_run(void *arg)
 				update_spectogram(filt_sample, p.filt_spect);
 			}
 		}
+		pthread_mutex_unlock(&player_mutex);
 
 		pthread_mutex_lock(&player_event_mutex);
 		evt = player_event;
-		player_event.sig = 0;
+		player_event.sig = EMPTY_SIG;
 		pthread_mutex_unlock(&player_event_mutex);
 		// event different from empty
-		if (evt.sig != 0)
-			player_dispatch_body(evt);
-
-		if (_player_exit)
+		if (evt.sig != EMPTY_SIG)
 		{
-			player_xtor();
-			pthread_exit(NULL);
+			pthread_mutex_lock(&player_mutex);
+			player_dispatch_body(evt);
+			pthread_mutex_unlock(&player_mutex);
 		}
+
 		if (deadline_miss(&tp))
 			printf("PLAYER MISS\n");
 		wait_for_period(&tp);
@@ -649,5 +665,108 @@ static void *player_run(void *arg)
  */
 void player_exit()
 {
-	_player_exit = 1;
+	player_dispatch((player_event_t){
+		sig : EXIT_SIG,
+	});
 }
+
+player_state_t player_get_state()
+{
+	player_state_t s;
+	pthread_mutex_lock(&player_mutex);
+	s = p.state;
+	pthread_mutex_unlock(&player_mutex);
+	return s;
+}
+
+void player_get_trackname(char *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	// TODO: possible error
+	strcpy(p.trackname, dst);
+	pthread_mutex_unlock(&player_mutex);
+}
+
+float player_get_time()
+{
+	float time;
+	pthread_mutex_lock(&player_mutex);
+	time = p.time;
+	pthread_mutex_unlock(&player_mutex);
+	return time;
+};
+
+float player_get_duration()
+{
+	float duration;
+	pthread_mutex_lock(&player_mutex);
+	duration = p.duration;
+	pthread_mutex_unlock(&player_mutex);
+	return duration;
+};
+
+float player_get_time_data()
+{
+	float time_data;
+	pthread_mutex_lock(&player_mutex);
+	time_data = p.time_data;
+	pthread_mutex_unlock(&player_mutex);
+	return time_data;
+};
+
+int player_get_bits()
+{
+	int bits;
+	pthread_mutex_lock(&player_mutex);
+	bits = p.bits;
+	pthread_mutex_unlock(&player_mutex);
+	return bits;
+};
+
+void player_get_orig_spect(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.orig_spect, sizeof(p.orig_spect));
+	pthread_mutex_unlock(&player_mutex);
+};
+
+void player_get_filt_spect(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.filt_spect, sizeof(p.filt_spect));
+	pthread_mutex_unlock(&player_mutex);
+};
+
+float player_get_dynamic_range()
+{
+	float dynamic_range;
+	pthread_mutex_lock(&player_mutex);
+	dynamic_range = p.dynamic_range;
+	pthread_mutex_unlock(&player_mutex);
+	return dynamic_range;
+};
+
+float player_get_freq_spacing()
+{
+	float freq_spacing;
+	pthread_mutex_lock(&player_mutex);
+	freq_spacing = p.freq_spacing;
+	pthread_mutex_unlock(&player_mutex);
+	return freq_spacing;
+};
+
+unsigned int player_get_volume()
+{
+	unsigned int volume;
+	pthread_mutex_lock(&player_mutex);
+	volume = p.volume;
+	pthread_mutex_unlock(&player_mutex);
+	return volume;
+};
+
+void player_get_eq_gain(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.eq_gain, sizeof(p.eq_gain));
+	pthread_mutex_unlock(&player_mutex);
+};
