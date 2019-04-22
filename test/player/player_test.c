@@ -15,19 +15,27 @@
 
 #include "player/player.h"
 #include <allegro.h>
+
 #include <criterion/criterion.h>
 
 #define TEST_AUDIO_FILES_DIR "/home/universita/workspace/github.com/stiflerGit/AudioPlayer/TestAudioFiles/"
 #define TEST_FILE "test.wav"
 
-const player_event_t reset_event = {STOP_SIG, 0};
+
+const player_event_t reset_event = {STOP_SIG, 0.0};
 
 void init() {
     allegro_init();
     install_sound(DIGI_AUTODETECT, 0, 0);
 }
 
-static void test_player_reproducing_state(void **state) {
+void fini() {
+    allegro_exit();
+}
+
+TestSuite(transitions, .init = init, .fini = fini);
+
+Test(transitions, reproducing_state) {
     struct testcase {
         char *name;
         int wait_time; /**< wait_time between an input and its next */
@@ -102,10 +110,8 @@ static void test_player_reproducing_state(void **state) {
         // check last state an output
         {
             player_state_t player_state = player_get_state();
-            if (player_state != t->expected_state) {
-                printf("STATE: actual %d, expected %d\n", player_state, t->expected_state);
-            }
-            assert_true(player_state == t->expected_state);
+            cr_expect_eq(player_state, t->expected_state,
+                    "%s", t->name);
         }
         player_dispatch(reset_event);
         sleep(1);
@@ -114,7 +120,7 @@ static void test_player_reproducing_state(void **state) {
     player_exit();
 }
 
-static void test_player_stop_state(void **state) {
+Test(transitions, stop_state){
     struct testcase {
         char *name;
         int wait_time; /**< wait_time of the test in seconds */
@@ -171,33 +177,19 @@ static void test_player_stop_state(void **state) {
     struct testcase *t;
     for (int i = 0; i < 5; i++) {
         t = &testcases[i];
-        printf("test: %s\n", t->name);
         for (int j = 0; j < t->input_sequence_size; j++) {
             float start_time = player_get_time();
             player_dispatch(t->input_sequence[j]);
             sleep(t->wait_time);
             player_state_t player_state = player_get_state();
-            if (player_state != t->expected_state) {
-                printf("test failed %s\n", t->name);
-            }
-            assert_true(player_state == t->expected_state);
-            // assert_true(p.time - start_time >= t->expected_elapsed_time);
+            cr_expect_eq(player_state,t->expected_state,
+                    "%s", t->name);
         }
         player_dispatch(reset_event);
         sleep(1);
     }
 
     player_exit();
-}
-
-int main(void) {
-    init();
-    const struct CMUnitTest tests[] = {
-            cmocka_unit_test(test_player_stop_state),
-            cmocka_unit_test(test_player_reproducing_state),
-    };
-
-    return cmocka_run_group_tests(tests, NULL, NULL);
 }
 
 //gcc -o player_test player_test.c player.c equalizer.c ../ptask.c -I../../include -lpthread -lm -lfftw3f -lcmocka  `allegro-config --libs`

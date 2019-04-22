@@ -15,12 +15,10 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include <cmocka.h>
+#include <criterion/criterion.h>
 
 #include "defines.h"
 #include "equalizer.c"
-
-#define assert mock_assert
 
 #define TEST_RESULTS_DIR "/tmp/github.com/stiflerGit/AudioPlayer/test/player/"
 
@@ -38,6 +36,9 @@ void init()
 		}
 	}
 }
+
+// TODO: Give a correct name to the suite
+TestSuite(idk, .init = init);
 
 typedef struct
 {
@@ -122,9 +123,8 @@ signal_t *signal_clone(const signal_t *src)
 /**
  * @brief test the equalization output when no gain
  *
- * @param state default param for cmocka
  */
-static void test_equalizer_equalize_no_gain(void **state)
+Test(idk, equalize_no_gain)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -147,10 +147,9 @@ static void test_equalizer_equalize_no_gain(void **state)
 		// I expect everything is almost(noise) untouched
 		for (int k = 0; k < 4410; k++)
 		{
-			assert_true(fabs((*amplified_signals[i]).data[k] - (*source_signals[i]).data[k]) < 0.1f);
+		    cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 0.1,
+		    "signals must be equal");
 		}
-		// assert_memory_equal((*amplified_signals[i]).data, (*source_signals[i]).data,
-		// 					(*amplified_signals[i]).size * sizeof(float));
 	}
 	for (int i = 0; i < NFILT; i++)
 	{
@@ -159,7 +158,7 @@ static void test_equalizer_equalize_no_gain(void **state)
 	}
 }
 
-static void test_equalizer_equalize_modify(void **state)
+Test(idk, equalize_modify)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -185,8 +184,9 @@ static void test_equalizer_equalize_modify(void **state)
 	{
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect everything is modified
-		assert_memory_not_equal((*amplified_signals[i]).data, (*source_signals[i]).data,
-								(*amplified_signals[i]).size * sizeof(float));
+		cr_assert_arr_neq((*amplified_signals[i]).data, (*source_signals[i]).data,
+								(*amplified_signals[i]).size * sizeof(float),
+								"amplified signal and source signal must be different");
 	}
 	for (int i = 0; i < NFILT; i++)
 	{
@@ -195,7 +195,7 @@ static void test_equalizer_equalize_modify(void **state)
 	}
 }
 
-static void test_equalizer_equalize_band_isolation(void **state)
+Test(idk, band_isolation)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -226,7 +226,8 @@ static void test_equalizer_equalize_band_isolation(void **state)
 		// I expect the signal will not be touched so much by the equalization
 		for (int k = 0; k < (*amplified_signals[i]).size; k++)
 		{
-			assert_true(fabsf((*amplified_signals[i]).data[k] - (*source_signals[i]).data[k]) < 10.0f);
+			cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 10.0f,
+			        "amplified signal and source signal must be equal");
 		}
 	}
 	// free memory
@@ -237,7 +238,7 @@ static void test_equalizer_equalize_band_isolation(void **state)
 	}
 }
 
-void test_equalizer_equalize_band_gain(void **state)
+Test(idk, band_gain)
 {
 	int i;
 	char path[256], filename[100];
@@ -306,7 +307,7 @@ void test_equalizer_equalize_band_gain(void **state)
 					(*source_signals[i]).data[k],
 					(*isolated_signals[i]).data[k],
 					(*amplified_signals[i]).data[k]);
-			// look at theese signals in a plot
+			// look at these signals in a plot
 		}
 	}
 	// free memory
@@ -317,17 +318,4 @@ void test_equalizer_equalize_band_gain(void **state)
 		signal_delete(amplified_signals[i]);
 		signal_delete(isolated_signals[i]);
 	}
-}
-
-int main()
-{
-	init();
-	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(test_equalizer_equalize_no_gain),
-		cmocka_unit_test(test_equalizer_equalize_modify),
-		cmocka_unit_test(test_equalizer_equalize_band_isolation),
-		cmocka_unit_test(test_equalizer_equalize_band_gain),
-	};
-
-	return cmocka_run_group_tests(tests, NULL, NULL);
 }
