@@ -18,11 +18,11 @@
 #include <criterion/criterion.h>
 
 #include "defines.h"
-#include "equalizer.c"
+#include "player/equalizer.h"
 
 #define TEST_RESULTS_DIR "/tmp/github.com/stiflerGit/AudioPlayer/test/player/"
 
-void init()
+static void init()
 {
 	struct stat st = {0};
 	int ret;
@@ -36,9 +36,6 @@ void init()
 		}
 	}
 }
-
-// TODO: Give a correct name to the suite
-TestSuite(idk, .init = init);
 
 typedef struct
 {
@@ -120,11 +117,118 @@ signal_t *signal_clone(const signal_t *src)
 	return dst;
 }
 
+TestSuite(unit);
+
+Test(unit, equalizer_set_gain)
+{
+	// int equalizer_set_gain(int filt, float gain)
+	typedef struct
+	{
+		int filt;
+		float gain;
+	} args;
+	typedef struct
+	{
+		char *name;
+		args args;
+		float wants;
+	} testcase;
+	testcase testcases[] = {
+		{
+			.name = "filt out of bound -1",
+			.args = {
+				.filt = -1,
+				.gain = 0.0,
+			},
+			.wants = -MAX_GAIN - 1,
+		},
+		{
+			.name = "filt out of bound NFILT",
+			.args = {
+				.filt = NFILT,
+				.gain = 0.0,
+			},
+			.wants = -MAX_GAIN - 1,
+		},
+		{
+			.name = "gain out of bound MAX_GAIN + 1",
+			.args = {
+				.filt = 0,
+				.gain = MAX_GAIN + 1,
+			},
+			.wants = MAX_GAIN,
+		},
+		{
+			.name = "gain out of bound -MAX_GAIN - 1",
+			.args = {
+				.filt = 3,
+				.gain = -MAX_GAIN - 1,
+			},
+			.wants = -MAX_GAIN,
+		},
+		{
+			.name = "nominal",
+			.args = (args){
+				.filt = 2,
+				.gain = 1.0,
+			},
+			.wants = 1.0,
+		},
+		{
+			.name = "left bound",
+			.args = (args){
+				.filt = 0,
+				.gain = -MAX_GAIN,
+			},
+			.wants = -MAX_GAIN,
+		},
+		{
+			.name = "right bound",
+			.args = (args){
+				.filt = 0,
+				.gain = MAX_GAIN,
+			},
+			.wants = MAX_GAIN,
+		},
+		{
+			.name = "half left bound",
+			.args = (args){
+				.filt = 0,
+				.gain = -MAX_GAIN / 2,
+			},
+			.wants = -MAX_GAIN / 2,
+		},
+		{
+			.name = "half right bound",
+			.args = (args){
+				.filt = 0,
+				.gain = MAX_GAIN / 2,
+			},
+			.wants = MAX_GAIN / 2,
+		},
+		{.name = ""}};
+
+	equalizer_init(44100);
+
+	testcase *t = testcases;
+	int i = 0;
+	while (strcmp(t->name, "") != 0)
+	{
+		float got = equalizer_set_gain(t->args.filt, t->args.gain);
+		cr_expect_float_eq(got, t->wants, 0.0, "%s: equalizer_set_gain(%d, %f);\texpected: %f got:%f",
+						   t->name, t->args.filt, t->args.gain, t->wants, got);
+		i++;
+		t = &testcases[i];
+	}
+}
+
+// TODO: Give a correct name to the suite
+TestSuite(signal, .init = init);
 /**
  * @brief test the equalization output when no gain
  *
  */
-Test(idk, equalize_no_gain)
+Test(signal, equalize_no_gain)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -147,8 +251,8 @@ Test(idk, equalize_no_gain)
 		// I expect everything is almost(noise) untouched
 		for (int k = 0; k < 4410; k++)
 		{
-		    cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 0.1,
-		    "signals must be equal");
+			cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 0.1,
+							   "signals must be equal");
 		}
 	}
 	for (int i = 0; i < NFILT; i++)
@@ -158,7 +262,7 @@ Test(idk, equalize_no_gain)
 	}
 }
 
-Test(idk, equalize_modify)
+Test(signal, equalize_modify)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -185,8 +289,8 @@ Test(idk, equalize_modify)
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect everything is modified
 		cr_assert_arr_neq((*amplified_signals[i]).data, (*source_signals[i]).data,
-								(*amplified_signals[i]).size * sizeof(float),
-								"amplified signal and source signal must be different");
+						  (*amplified_signals[i]).size * sizeof(float),
+						  "amplified signal and source signal must be different");
 	}
 	for (int i = 0; i < NFILT; i++)
 	{
@@ -195,7 +299,7 @@ Test(idk, equalize_modify)
 	}
 }
 
-Test(idk, band_isolation)
+Test(signal, band_isolation)
 {
 	// signals on the center frequency of the filters
 	signal_t *source_signals[NFILT] = {
@@ -227,7 +331,7 @@ Test(idk, band_isolation)
 		for (int k = 0; k < (*amplified_signals[i]).size; k++)
 		{
 			cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 10.0f,
-			        "amplified signal and source signal must be equal");
+							   "amplified signal and source signal must be equal");
 		}
 	}
 	// free memory
@@ -238,7 +342,7 @@ Test(idk, band_isolation)
 	}
 }
 
-Test(idk, band_gain)
+Test(signal, band_gain)
 {
 	int i;
 	char path[256], filename[100];

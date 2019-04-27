@@ -68,7 +68,7 @@ static void control(Node *n, int x, int y)
 	switch (n->evt)
 	{
 	case JUMP_SIG:
-		evt.val = p.duration * ((float)(x - n->x)) / (float)n->w;
+		evt.val = player_get_duration() * ((float)(x - n->x)) / (float)n->w;
 		break;
 	case FILTLOW_SIG:
 	case FILTMED_SIG:

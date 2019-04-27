@@ -48,7 +48,7 @@ struct fspect_panel_t
 struct fspect_panel_t filt_spect_panel;
 struct fspect_panel_t orig_spect_panel;
 
-static Player_t old_p; /**< Previous player state. */
+static Player_t old_p, actual_p; /**< Previous player state. */
 
 /*******************************************************************************
  *				TIME DATA PANEL
@@ -64,9 +64,9 @@ static void timedata_panel_update()
 	buf = create_bitmap(n->w / 2 - n->w / 30, n->h - 2);
 
 	x = n->x + n->w / 2;
-	// depend on p.time data
+	// depend on actual_p.time data
 	y = (n->y + n->h / 2) -
-		p.time_data * (n->h / 2) / ((1 << (p.bits - 1)) - 1);
+		actual_p.time_data * (n->h / 2) / ((1 << (actual_p.bits - 1)) - 1);
 
 	scare_mouse();
 	blit(screen, buf, n->x + n->w / 30, n->y + 1, 0, 0, buf->w, buf->h);
@@ -229,24 +229,23 @@ int fspect_panel_zoomout(struct fspect_panel_t *panel)
  */
 static void title_draw()
 {
-	char slide[100]; /**< Buffer for title slide. */
-	int len;		 /**< title length. */
-	int speed;		 /**< No. character to slide. */
-	Node *n;		 /**< Pointer to a graphic Obj. */
-	static int blink_count = 0;
-	/**< Counter for title blinking. */
+	char slide[100];			/**< Buffer for title slide. */
+	int len;					/**< title length. */
+	int speed;					/**< No. character to slide. */
+	Node *n;					/**< Pointer to a graphic Obj. */
+	static int blink_count = 0; /**< Counter for title blinking. */
 
 	n = &nodes[TITLE_PANEL][TITLEP_TXT];
 
-	if (p.state != PAUSE)
+	if (actual_p.state != PAUSE)
 		n->fg = WHITE;
 
 	speed = 0;
-	switch (p.state)
+	switch (actual_p.state)
 	{
 	case STOP:
 		// reset title
-		strcpy(((text *)(n->dp))->str, p.trackname);
+		strcpy(((text *)(n->dp))->str, actual_p.trackname);
 		strcat(((text *)(n->dp))->str, "       ");
 		break;
 	case PLAY:
@@ -294,7 +293,7 @@ static void control_draw()
 {
 	Node *n;
 
-	if (old_p.state != p.state)
+	if (old_p.state != actual_p.state)
 	{
 
 		switch (old_p.state)
@@ -319,7 +318,7 @@ static void control_draw()
 		}
 		n->fg = TSPRNT;
 		g_draw(n);
-		switch (p.state)
+		switch (actual_p.state)
 		{
 		case STOP:
 			n = (&nodes[CTRL_PANEL][STOP_BTN]);
@@ -354,7 +353,7 @@ static void control_draw()
  * Than draw all graphic objects defined statically in the configuration file.
  * The only things that need to be initialized dinamically are the spectograms
  * bars, but only for pratically reasons.
- * Take the first copy of Player p.
+ * Take the first copy of Player actual_p.
  */
 void view_init()
 {
@@ -366,7 +365,7 @@ void view_init()
 	clear_to_color(screen, 0);
 
 	n = &nodes[TITLE_PANEL][TITLEP_TXT];
-	strcpy(((text *)n->dp)->str, p.trackname);
+	strcpy(((text *)n->dp)->str, actual_p.trackname);
 	strcat(((text *)n->dp)->str, "       ");
 
 	for (i = 0; i < NPANEL; i++)
@@ -384,7 +383,8 @@ void view_init()
 	orig_spect_panel.ID_PANEL = ORIG_SP_PANEL;
 	fspect_panel_init(&orig_spect_panel);
 
-	memcpy(&old_p, &p, sizeof(Player_t));
+	// TODO: change
+	player_get_player(&old_p);
 
 	// What if the player already started to play??
 	nodes[CTRL_PANEL][STOP_BTN].fg = RED;
@@ -412,31 +412,31 @@ static void view_run_body()
 	Node *n;   /**< Pointer to a graphic object. */
 
 	// PLAYER STATE
-	if (old_p.state != p.state)
+	if (old_p.state != actual_p.state)
 	{
 		control_draw();
-		old_p.state = p.state;
+		old_p.state = actual_p.state;
 	}
 	// Title is always moving
 	title_draw();
 	// PLAYER TIME
-	if (old_p.time != p.time)
+	if (old_p.time != actual_p.time)
 	{
 		n = &nodes[POS_PANEL][POSP_BAR];
 		// position set bar update
-		pix = n->w * p.time / p.duration + n->x;
+		pix = n->w * actual_p.time / actual_p.duration + n->x;
 		n = &nodes[POS_PANEL][POSP_SETB];
 		// HERE
 		g_stretch(n, pix, n->y, n->w, n->h);
 		// time text update
 		n = &nodes[POS_PANEL][POSP_TIME];
 		sprintf(((text *)(n->dp))->str, "%02d:%02d",
-				((int)p.time) / 60, ((int)p.time) % 60);
+				((int)actual_p.time) / 60, ((int)actual_p.time) % 60);
 		g_draw(n);
-		old_p.time = p.time;
+		old_p.time = actual_p.time;
 	}
 	// PLAYER TIMEDATA
-	if (p.state != STOP && p.state != PAUSE)
+	if (actual_p.state != STOP && actual_p.state != PAUSE)
 	{
 		timedata_panel_update();
 	}
@@ -449,11 +449,11 @@ static void view_run_body()
 		next = 0;
 		for (j = i * spv; (j < (i + 1) * spv) && (next == 0); j++)
 		{
-			if (old_p.filt_spect[j] != p.filt_spect[j])
+			if (old_p.filt_spect[j] != actual_p.filt_spect[j])
 			{
 				fspect_bar_update(&filt_spect_panel, i,
-								  p.filt_spect);
-				memcpy(&old_p.filt_spect[j], &p.filt_spect[j],
+								  actual_p.filt_spect);
+				memcpy(&old_p.filt_spect[j], &actual_p.filt_spect[j],
 					   sizeof(float) * (spv - (j % spv)));
 				next = 1;
 			}
@@ -466,48 +466,48 @@ static void view_run_body()
 		next = 0;
 		for (j = i * spv; (j < (i + 1) * spv) && (next == 0); j++)
 		{
-			if (old_p.orig_spect[j] != p.orig_spect[j])
+			if (old_p.orig_spect[j] != actual_p.orig_spect[j])
 			{
 				fspect_bar_update(&orig_spect_panel, i,
-								  p.orig_spect);
-				memcpy(&old_p.orig_spect[j], &p.orig_spect[j],
+								  actual_p.orig_spect);
+				memcpy(&old_p.orig_spect[j], &actual_p.orig_spect[j],
 					   sizeof(float) * (spv - (j % spv)));
 				next = 1;
 			}
 		}
 	}
 	// PLAYER VOLUME
-	if (old_p.volume != p.volume)
+	if (old_p.volume != actual_p.volume)
 	{
 		// VOLUME SET BAR
 		n = &nodes[EQULZ_PANEL][VOL_BAR];
-		pix = -((float)(n->h * p.volume) / (float)100) + n->y + n->h;
+		pix = -((float)(n->h * actual_p.volume) / (float)100) + n->y + n->h;
 		n = &nodes[EQULZ_PANEL][VOL_SBAR];
 		g_stretch(n, n->x, pix, n->w, n->h);
 		// VOLUME VAL LABEL
 		n = &nodes[EQULZ_PANEL][VOL_VAL_LBL];
-		sprintf(((text *)(n->dp))->str, "%3d", p.volume);
+		sprintf(((text *)(n->dp))->str, "%3d", actual_p.volume);
 		g_draw(n);
 
-		old_p.volume = p.volume;
+		old_p.volume = actual_p.volume;
 	}
 	// PLAYER EQUALIZ
 	for (int i = 0; i < PLAYER_NFILT; i++)
 	{
-		if (old_p.eq_gain[i] != p.eq_gain[i])
+		if (old_p.eq_gain[i] != actual_p.eq_gain[i])
 		{
 			// EQ SET BAR
 			n = &nodes[EQULZ_PANEL][LFRQ_BAR + i];
-			pix = -(n->h * p.eq_gain[i]) / (MAX_GAIN * 2) + n->y + n->h / 2;
+			pix = -(n->h * actual_p.eq_gain[i]) / (MAX_GAIN * 2) + n->y + n->h / 2;
 			n = &nodes[EQULZ_PANEL][LFRQ_SBAR + i];
 			g_stretch(n, n->x, pix, n->w, n->h);
 			//EQ GAIN LABEL
 			n = &nodes[EQULZ_PANEL][LFRQ_GAIN_LBL + i];
 			sprintf(((text *)(n->dp))->str, "%3d dB",
-					(int)p.eq_gain[i]);
+					(int)actual_p.eq_gain[i]);
 			g_draw(n);
 
-			old_p.eq_gain[i] = p.eq_gain[i];
+			old_p.eq_gain[i] = actual_p.eq_gain[i];
 		}
 	}
 }
@@ -564,6 +564,7 @@ static void *view_run(void *arg)
 
 	while (1)
 	{
+		player_get_player(&actual_p);
 		view_run_body();
 		if (_view_exit)
 		{
