@@ -23,8 +23,8 @@ DEP := $(filter-out obj/main.o,$(OBJECTS))
 $(TARGET): $(OBJECTS)
 	$(CC) -o $@ $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
 
-$(TARGET)_test: $(DEP) $(TEST_OBJECTS)
-	$(CC) -o $@ $^ $(CPPFLAGS) $(LDFLAGS) $(LDTEST) $(LDLIBS) $(GLIBS)
+test: $(DEP) $(TEST_OBJECTS)
+	$(CC) -o $(TARGET)_test $^ $(CPPFLAGS) $(LDFLAGS) $(LDTEST) $(LDLIBS) $(GLIBS)
 
 $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(dir $@)
@@ -32,5 +32,6 @@ $(OBJDIR)/%.o: $(SRCDIR)/%.c
 
 clean:
 	rm -rf $(OBJDIR)
+	rm $(TARGET) $(TARGET)_test
 
-.PHONY: clean test
+.PHONY: clean
