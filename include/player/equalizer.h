@@ -40,6 +40,6 @@ int equalizer_equalize(float buf[], unsigned int count);
  * @param gain gain value
  * @return int the new gain of the filter, -1 on error.
  */
-int equalizer_set_gain(int filt, float gain);
+float equalizer_set_gain(int filt, float gain);
 
 #endif //EQUALIZER_H

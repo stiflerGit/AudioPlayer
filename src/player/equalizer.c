@@ -10,6 +10,8 @@
  */
 #include "player/equalizer.h"
 
+#include <stdio.h>
+
 #include <error.h>
 #include <math.h>
 
@@ -195,9 +197,6 @@ static void peakingEQ_filter_calc_coef(filter_t *f)
     float A, a, S_BW;
     float w0, cosW0, sinW0;
 
-    // TODO: remove me
-    f->g = MAX_GAIN;
-    //
     A = powf(10, f->g / 40);
     S_BW = f->S_BW;
     w0 = f->w0;
@@ -294,15 +293,18 @@ int equalizer_equalize(float buf[], unsigned int count)
  * @param gain gain value
  * @return int the new gain of the filter, -1 on error.
  */
-int equalizer_set_gain(int filt, float gain)
+float equalizer_set_gain(int filt, float gain)
 {
-    if (filt < 0 || filt > NFILT)
+    if (filt < 0 || filt >= NFILT)
     {
-        return -1;
+        error_at_line(0, 0, __FILE__, __LINE__,
+                      "filter index out of bound %d, min is %d, max is %d",
+                      filt, 0, NFILT - 1);
+        return -MAX_GAIN - 1;
     }
     if (fabs(gain) > MAX_GAIN)
     {
-        return -1;
+        gain = (gain < 0) ? -MAX_GAIN : MAX_GAIN;
     }
     eq_filt[filt].g = gain;
     eq_filt[filt].calc_coef(&eq_filt[filt]);
