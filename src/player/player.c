@@ -31,24 +31,6 @@
 #define modulus(cpx) (sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
 #define phase(cpx) (atan2f((cpx)[1], (cpx)[0]))
 
-typedef struct
-{
-	player_state_t state; /**< The player State. */
-	char trackname[100];  /**< Track Name. */
-	float time;			  /**< Actual reproducing time in sec. */
-	float duration;		  /**< Total track duration in sec. */
-	float time_data;	  /**< Timedata. */
-	int bits;			  /**< Bit depth of samples. */
-	float orig_spect[PLAYER_WINDOW_SIZE_CPX];
-	/**< Spectrogram of the original window. (not filtered song) */
-	float filt_spect[PLAYER_WINDOW_SIZE_CPX];
-	/**< Spectrogram of the reproducing window. (i.e. the filtered song) */
-	float dynamic_range;		 /**< Decibel range of each spect. term.*/
-	float freq_spacing;			 /**< Frequency spacing between each spect. term */
-	unsigned int volume;		 /**< Reproducing volume [0-100]. */
-	float eq_gain[PLAYER_NFILT]; /**< gain at each frequency. */
-} Player_t;
-
 static Player_t p; /**< The player struct. */
 
 static int pos;				/**< Reproducing position. */
@@ -74,8 +56,6 @@ static pthread_mutex_t player_mutex =
 	PTHREAD_MUTEX_INITIALIZER; /**< mutex to access player */
 static pthread_mutex_t player_event_mutex =
 	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the event. */
-
-static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
 
 /**
  * @brief player thread routine
@@ -361,6 +341,43 @@ void player_init(const char *path)
 	voice_set_playmode(v, PLAYMODE_PLAY);
 }
 
+void player_volume(float val)
+{
+	if (val > 100)
+		val = 100;
+	if (val < 0)
+		val = 0;
+	// convert [0-100] scale to [0-255] scale
+	voice_set_volume(v, (int)(val * 2.55));
+	p.volume = (int)val;
+}
+
+void player_jump(float val)
+{
+	if (val > p.duration)
+		val = p.duration;
+	if (val < 0)
+		val = 0;
+	// convert time to position thanks to frequency
+	pos = val * filt_sample->freq;
+	p.time = val;
+	voice_set_position(v, pos);
+}
+
+void player_filtxxx(player_event_t evt)
+{
+	float ret;
+	ret = equalizer_set_gain(evt.sig - FILTLOW_SIG, evt.val);
+	if (ret == MAX_GAIN - 1)
+	{
+		error_at_line(-1, 0, __FILE__, __LINE__,
+					  "error in equalizer set gain(%d, %f)",
+					  evt.sig - FILTLOW_SIG, evt.val);
+	}
+	p.eq_gain[evt.sig - FILTLOW_SIG] = ret;
+	filt_pos = pos;
+}
+
 /**
  * @brief call the function corresponding to the given event
  * 
@@ -371,7 +388,6 @@ void player_init(const char *path)
  */
 static void player_dispatch_body(player_event_t evt)
 {
-	int ret;
 	switch (evt.sig)
 	{
 	case STOP_SIG:
@@ -390,36 +406,16 @@ static void player_dispatch_body(player_event_t evt)
 		player_forward();
 		break;
 	case VOL_SIG:
-		if (evt.val > 100)
-			evt.val = 100;
-		if (evt.val < 0)
-			evt.val = 0;
-		// convert [0-100] scale to [0-255] scale
-		voice_set_volume(v, (int)(evt.val * 2.55));
-		p.volume = (int)evt.val;
+		player_volume(evt.val);
 		break;
 	case JUMP_SIG:
-		if (evt.val > p.duration)
-			evt.val = p.duration;
-		if (evt.val < 0)
-			evt.val = 0;
-		// convert time to position thanks to frequency
-		pos = evt.val * filt_sample->freq;
-		p.time = evt.val;
-		voice_set_position(v, pos);
+		player_jump(evt.val);
 		break;
 	case FILTLOW_SIG:
 	case FILTMED_SIG:
 	case FILTMEDHIG_SIG:
 	case FILTHIG_SIG:
-		if (abs(evt.val) > MAX_GAIN)
-		{
-			evt.val = (evt.val < 0) ? -MAX_GAIN : MAX_GAIN;
-		}
-		// TODO: control on evt.val and ret value for error detection
-		ret = equalizer_set_gain(evt.sig - FILTLOW_SIG, evt.val);
-		p.eq_gain[evt.sig - FILTLOW_SIG] = ret;
-		filt_pos = pos;
+		player_filtxxx(evt);
 		break;
 	case EXIT_SIG:
 		destroy_sample(filt_sample);
@@ -681,10 +677,8 @@ player_state_t player_get_state()
 
 void player_get_trackname(char *dst)
 {
-	pthread_mutex_lock(&player_mutex);
-	// TODO: possible error
+	// trackname doesn't change
 	strcpy(p.trackname, dst);
-	pthread_mutex_unlock(&player_mutex);
 }
 
 float player_get_time()
@@ -698,11 +692,8 @@ float player_get_time()
 
 float player_get_duration()
 {
-	float duration;
-	pthread_mutex_lock(&player_mutex);
-	duration = p.duration;
-	pthread_mutex_unlock(&player_mutex);
-	return duration;
+	//duration doesn't change
+	return p.duration;
 };
 
 float player_get_time_data()
@@ -716,11 +707,8 @@ float player_get_time_data()
 
 int player_get_bits()
 {
-	int bits;
-	pthread_mutex_lock(&player_mutex);
-	bits = p.bits;
-	pthread_mutex_unlock(&player_mutex);
-	return bits;
+	// bits doesn't change
+	return p.bits;
 };
 
 void player_get_orig_spect(float *dst)
@@ -739,20 +727,14 @@ void player_get_filt_spect(float *dst)
 
 float player_get_dynamic_range()
 {
-	float dynamic_range;
-	pthread_mutex_lock(&player_mutex);
-	dynamic_range = p.dynamic_range;
-	pthread_mutex_unlock(&player_mutex);
-	return dynamic_range;
+	// dynamic_range doesn't change
+	return p.dynamic_range;
 };
 
 float player_get_freq_spacing()
 {
-	float freq_spacing;
-	pthread_mutex_lock(&player_mutex);
-	freq_spacing = p.freq_spacing;
-	pthread_mutex_unlock(&player_mutex);
-	return freq_spacing;
+	// freq_spacing doesn't change
+	return p.freq_spacing;
 };
 
 unsigned int player_get_volume()
@@ -770,3 +752,10 @@ void player_get_eq_gain(float *dst)
 	memcpy(dst, p.eq_gain, sizeof(p.eq_gain));
 	pthread_mutex_unlock(&player_mutex);
 };
+
+void player_get_player(Player_t *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, &p, sizeof(Player_t));
+	pthread_mutex_unlock(&player_mutex);
+}

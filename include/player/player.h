@@ -89,6 +89,24 @@ typedef enum
 	FORWARD, /**< Reproducing faster. */
 } player_state_t;
 
+typedef struct
+{
+	player_state_t state; /**< The player State. */
+	char trackname[100];  /**< Track Name. */
+	float time;			  /**< Actual reproducing time in sec. */
+	float duration;		  /**< Total track duration in sec. */
+	float time_data;	  /**< Timedata. */
+	int bits;			  /**< Bit depth of samples. */
+	float orig_spect[PLAYER_WINDOW_SIZE_CPX];
+	/**< Spectrogram of the original window. (not filtered song) */
+	float filt_spect[PLAYER_WINDOW_SIZE_CPX];
+	/**< Spectrogram of the reproducing window. (i.e. the filtered song) */
+	float dynamic_range;		 /**< Decibel range of each spect. term.*/
+	float freq_spacing;			 /**< Frequency spacing between each spect. term */
+	unsigned int volume;		 /**< Reproducing volume [0-100]. */
+	float eq_gain[PLAYER_NFILT]; /**< gain at each frequency. */
+} Player_t;
+
 /**
  * @brief Initialize the player
  * 
@@ -199,5 +217,12 @@ unsigned int player_get_volume();
  * @param dst 
  */
 void player_get_eq_gain(float *dst);
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_player(Player_t *dst);
 
 #endif /* PLAYER_H_ */
