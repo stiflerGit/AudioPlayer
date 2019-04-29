@@ -1,5 +1,5 @@
 SRCDIR = src
-INCDIR = include
+INCDIR = inc
 OBJDIR = obj
 TESTDIR = test
 
@@ -23,15 +23,16 @@ DEP := $(filter-out obj/main.o,$(OBJECTS))
 $(TARGET): $(OBJECTS)
 	$(CC) -o $@ $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
 
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	mkdir -p $(dir $@)
+	$(CC) -o $@ -c $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
+
 test: $(DEP) $(TEST_OBJECTS)
 	$(CC) -o $(TARGET)_test $^ $(CPPFLAGS) $(LDFLAGS) $(LDTEST) $(LDLIBS) $(GLIBS)
 
-$(OBJDIR)/%.o: $(SRCDIR)/%.c
-	@mkdir -p $(dir $@)
-	$(CC) -o $@ -c $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
-
 clean:
-	rm -rf $(OBJDIR)
-	rm $(TARGET) $(TARGET)_test
+	@rm -rf $(OBJDIR)
+	@rm -f $(TARGET) $(TARGET)_test
+	@rm -f $(TEST_OBJECTS)
 
 .PHONY: clean
