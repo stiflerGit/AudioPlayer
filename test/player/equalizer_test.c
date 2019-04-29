@@ -369,7 +369,7 @@ Test(signal, band_gain)
 	for (i = 0; i < NFILT; i++)
 	{
 		strcpy(path, TEST_RESULTS_DIR);
-		sprintf(filename, "signal_of_%d_Hz.dat", (*source_signals[i]).signal_freq);
+		sprintf(filename, "%dHz.dat", (*source_signals[i]).signal_freq);
 		strcat(path, filename);
 
 		test_results_files[i] = fopen(path, "w+");
@@ -378,6 +378,8 @@ Test(signal, band_gain)
 			perror("creating the file ");
 			exit(EXIT_FAILURE);
 		}
+
+		fprintf(test_results_files[i], "#source\t#amplified\t#isolated\n");
 	}
 
 	equalizer_init(44100);
