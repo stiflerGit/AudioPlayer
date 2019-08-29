@@ -40,8 +40,7 @@
  */
 typedef enum
 {
-	EXIT_SIG,
-	EMPTY_SIG = 0,  /**< Do nothing. */
+	EMPTY_SIG,		/**< Do nothing. */
 	TICK_SIG,		/**< Tick signal. */
 	STOP_SIG,		/**< Stop the track. */
 	PLAY_SIG,		/**< Play the track. */
@@ -49,8 +48,8 @@ typedef enum
 	RWND_SIG,		/**< Fast rewind the track. */
 	FRWD_SIG,		/**< Fast forward the track. */
 	VOL_SIG,		/**< Volume changes.
-			 *	@param	value	volume value;
-			 */
+			 		*	@param	value	volume value;
+			 		*/
 	JUMP_SIG,		/**< Jump to a specific play time. */
 	FILTLOW_SIG,	/**< Filter low frequencies (20Hz - 500Hz). */
 	FILTMED_SIG,	/**< Filter medium frequencies (500Hz - 2000Hz). */

@@ -29,6 +29,8 @@ static task_par_t tp = {
 	dmiss : 0,
 };
 static char _view_exit = 0;
+static pthread_mutex_t _view_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static void *view_run(void *arg);
 
 static const int ZOOM_TO_BAR[6] = {210, 170, 140, 100, 70, 30};
@@ -526,6 +528,8 @@ static void view_xtor()
 			g_destroy(&(nodes[i][j]));
 		}
 	}
+
+	pthread_mutex_destroy(&_view_exit_mutex);
 }
 
 /**
@@ -560,17 +564,23 @@ pthread_t *view_start(task_par_t *task_par)
  */
 static void *view_run(void *arg)
 {
+	char local_view_exit;
 	set_period(&tp);
 
 	while (1)
 	{
-		player_get_player(&actual_p);
-		view_run_body();
-		if (_view_exit)
+		// manage exit
+		pthread_mutex_lock(&_view_exit_mutex);
+		local_view_exit = _view_exit;
+		pthread_mutex_unlock(&_view_exit_mutex);
+		if (local_view_exit == 1)
 		{
 			view_xtor();
 			pthread_exit(NULL);
 		}
+
+		player_get_player(&actual_p);
+		view_run_body();
 
 		if (deadline_miss(&tp))
 		{
@@ -587,5 +597,7 @@ static void *view_run(void *arg)
  */
 void view_exit()
 {
+	pthread_mutex_lock(&_view_exit_mutex);
 	_view_exit = 1;
+	pthread_mutex_unlock(&_view_exit_mutex);
 }

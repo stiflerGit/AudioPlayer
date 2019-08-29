@@ -42,8 +42,10 @@ static task_par_t tp = {
 static pthread_t tid; /**< thread identifier of the controller. */
 
 static char _controller_exit = 0; /**< variable to notice the thread that has to exit. */
+static pthread_mutex_t _controller_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void *controller_run(void *arg);
+static void controller_xtor();
 
 /**
  * @brief build the event correctly w.r.t the coordinates and dispatch it 
@@ -153,6 +155,18 @@ static void *controller_run(void *arg)
 
 	while (1)
 	{
+		{ // exit
+			char local_control_exit;
+			pthread_mutex_lock(&_controller_exit_mutex);
+			local_control_exit = _controller_exit;
+			pthread_mutex_unlock(&_controller_exit_mutex);
+			if (_controller_exit)
+			{
+				pthread_exit(NULL);
+				controller_xtor();
+			}
+		}
+
 		if (mouse_needs_poll())
 			poll_mouse();
 		//check for user clicks
@@ -179,9 +193,6 @@ static void *controller_run(void *arg)
 			mouse_b = 0;
 		}
 
-		if (_controller_exit)
-			pthread_exit(NULL);
-
 		if (deadline_miss(&tp))
 		{
 			printf("VIEW MISS");
@@ -197,5 +208,12 @@ static void *controller_run(void *arg)
  */
 void controller_exit()
 {
+	pthread_mutex_lock(&_controller_exit_mutex);
 	_controller_exit = 1;
+	pthread_mutex_unlock(&_controller_exit_mutex);
+}
+
+static void controller_xtor()
+{
+	pthread_mutex_destroy(&_controller_exit_mutex);
 }

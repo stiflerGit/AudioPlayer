@@ -4,9 +4,9 @@
 
 #include <allegro.h>
 
+#include "controller.h"
 #include "player/player.h"
 #include "view/view.h"
-#include "controller.h"
 
 #define NULL ((void *)0)
 
@@ -39,8 +39,11 @@ int main(int argc, char **argv)
     controller_thread = controller_start(NULL);
 
     pthread_join(*controller_thread, NULL);
-    pthread_join(*view_thread, NULL);
+    printf("controller join\n");
     pthread_join(*player_thread, NULL);
+    printf("player join\n");
+    pthread_join(*view_thread, NULL);
+    printf("view join\n");
 
     allegro_exit();
 }

@@ -57,6 +57,9 @@ static pthread_mutex_t player_mutex =
 static pthread_mutex_t player_event_mutex =
 	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the event. */
 
+static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
+static pthread_mutex_t _player_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /**
  * @brief player thread routine
  * 
@@ -64,6 +67,12 @@ static pthread_mutex_t player_event_mutex =
  * @return void* pointer to the variable returned by the thread(actually nothing)
  */
 static void *player_run(void *arg);
+
+/**
+ * @brief player destructor
+ * 
+ */
+static void player_xtor();
 
 /*******************************************************************************
  * 				Player Events
@@ -417,11 +426,8 @@ static void player_dispatch_body(player_event_t evt)
 	case FILTHIG_SIG:
 		player_filtxxx(evt);
 		break;
-	case EXIT_SIG:
-		destroy_sample(filt_sample);
-		destroy_sample(orig_sample);
-		pthread_exit(NULL);
 	default:
+		printf("not a valid signal\n");
 		break;
 	}
 }
@@ -610,11 +616,25 @@ pthread_t *player_start(task_par_t *task_par)
  */
 static void *player_run(void *arg)
 {
+
 	player_event_t evt;
 	set_period(&tp);
 
 	while (1)
 	{
+		{ // exit
+			char local_player_exit;
+
+			pthread_mutex_lock(&_player_exit_mutex);
+			local_player_exit = _player_exit;
+			pthread_mutex_unlock(&_player_exit_mutex);
+			if (local_player_exit)
+			{
+				player_xtor();
+				pthread_exit(NULL);
+			}
+		}
+
 		pthread_mutex_lock(&player_mutex);
 		if (p.state != STOP && p.state != PAUSE)
 		{
@@ -661,9 +681,9 @@ static void *player_run(void *arg)
  */
 void player_exit()
 {
-	player_dispatch((player_event_t){
-		sig : EXIT_SIG,
-	});
+	pthread_mutex_lock(&_player_exit_mutex);
+	_player_exit = 1;
+	pthread_mutex_unlock(&_player_exit_mutex);
 }
 
 player_state_t player_get_state()
@@ -758,4 +778,13 @@ void player_get_player(Player_t *dst)
 	pthread_mutex_lock(&player_mutex);
 	memcpy(dst, &p, sizeof(Player_t));
 	pthread_mutex_unlock(&player_mutex);
+}
+
+void player_xtor()
+{
+	destroy_sample(filt_sample);
+	destroy_sample(orig_sample);
+	pthread_mutex_destroy(&player_mutex);
+	pthread_mutex_destroy(&player_event_mutex);
+	pthread_mutex_destroy(&_player_exit_mutex);
 }
