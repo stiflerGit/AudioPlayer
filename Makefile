@@ -1,28 +1,38 @@
+SRCDIR = src
+INCDIR = inc
+OBJDIR = obj
+TESTDIR = test
+
+TARGET = player
+#------------------------------------------------
 CFLAGS = -Wall -g
-LDLIBS = -lfftw3f -lm
+CPPFLAGS = -I./$(INCDIR)
+LDLIBS = -lrt -lfftw3f -lm
+LDTEST = -lcriterion
+LDFLAGS = -pthread
 GLIBS = `allegro-config --libs`
+MAIN = main.o
+#------------------------------------------------
 
-GOBJS = bar.o button.o text.o
+SOURCES := $(shell find $(SRCDIR) -name '*.c')
+OBJECTS := $(patsubst $(SRCDIR)/%,$(OBJDIR)/%,$(SOURCES:.c=.o))
+TEST_SOURCES := $(shell find $(TESTDIR) -name '*.c')
+TEST_OBJECTS := $(patsubst $(TEST_SOURCES)/%,$(OBJDIR)/%,$(TEST_SOURCES:.c=.o))
+DEP := $(filter-out obj/main.o,$(OBJECTS))
 
-.PHONY:
-all:	View	Model
-	gcc -o audioplayer main.c view.o model.o $(GLIBS)
+$(TARGET): $(OBJECTS)
+	$(CC) -o $@ $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
 
-View:	Graphic_fw
-	gcc -o view.o -c View/View.c $(GOBJS) $(GLIBS)
+$(OBJDIR)/%.o: $(SRCDIR)/%.c
+	mkdir -p $(dir $@)
+	$(CC) -o $@ -c $^ $(CPPFLAGS) $(LDFLAGS) $(LDLIBS) $(GLIBS)
 
-View_Config: 
-	gcc -o view_config -c View/View_Config.c
-
-Graphic_fw:
-	gcc -o bar.o -c View/graphic_framework/bar.c  $(GLIBS)
-	gcc -o text.o -c View/graphic_framework/text.c $(GLIBS)
-	gcc -o button.o -c View/graphic_framework/button.c $(GLIBS) 
-
-Model:
-	gcc -o model.o -c Model/Player.c $(CLIBS) $(GLIBS)
-
-Controller:
+test: $(DEP) $(TEST_OBJECTS)
+	$(CC) -o $(TARGET)_test $^ $(CPPFLAGS) $(LDFLAGS) $(LDTEST) $(LDLIBS) $(GLIBS)
 
 clean:
-	rm -f *.o 
+	@rm -rf $(OBJDIR)
+	@rm -f $(TARGET) $(TARGET)_test
+	@rm -f $(TEST_OBJECTS)
+
+.PHONY: clean

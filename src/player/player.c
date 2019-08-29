@@ -12,8 +12,8 @@
  */
 #include "player/player.h"
 // standards libraries
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 //
 #include <assert.h>
 #include <error.h>
@@ -21,8 +21,8 @@
 #include <math.h>
 #include <string.h>
 //
-#include <fftw3.h>
 #include <allegro.h>
+#include <fftw3.h>
 
 #include "defines.h"
 #include "player/equalizer.h"
@@ -31,7 +31,7 @@
 #define modulus(cpx) (sqrt(((cpx)[0] * (cpx)[0]) + ((cpx)[1] * (cpx)[1])))
 #define phase(cpx) (atan2f((cpx)[1], (cpx)[0]))
 
-Player_t p; /**< The player struct. */
+static Player_t p; /**< The player struct. */
 
 static int pos;				/**< Reproducing position. */
 static int filt_pos = 0;	/**< Filtering position. */
@@ -51,10 +51,11 @@ static task_par_t tp = {
 
 static pthread_t tid; /**< player thread identifier. */
 
-static player_event_t player_event;		   /**< event for dispatch. */
-static pthread_mutex_t player_event_mutex; /**< mutex for the event. */
-
-static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
+static player_event_t player_event; /**< event for dispatch. */
+static pthread_mutex_t player_mutex =
+	PTHREAD_MUTEX_INITIALIZER; /**< mutex to access player */
+static pthread_mutex_t player_event_mutex =
+	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the event. */
 
 /**
  * @brief player thread routine
@@ -329,7 +330,7 @@ void player_init(const char *path)
 	p.dynamic_range =
 		fabsf(20.0f * log10f(1.0f / (1 << filt_sample->bits)));
 	p.freq_spacing = ((float)filt_sample->freq) / PLAYER_WINDOW_SIZE;
-	p.volume = 255;
+	p.volume = 100;
 	// initialize of Band EQ.
 	memset(p.eq_gain, 0, sizeof(p.eq_gain));
 	equalizer_init(filt_sample->freq);
@@ -338,6 +339,43 @@ void player_init(const char *path)
 	if (v < 0)
 		error_at_line(-1, 0, __FILE__, __LINE__, "no voices are available");
 	voice_set_playmode(v, PLAYMODE_PLAY);
+}
+
+void player_volume(float val)
+{
+	if (val > 100)
+		val = 100;
+	if (val < 0)
+		val = 0;
+	// convert [0-100] scale to [0-255] scale
+	voice_set_volume(v, (int)(val * 2.55));
+	p.volume = (int)val;
+}
+
+void player_jump(float val)
+{
+	if (val > p.duration)
+		val = p.duration;
+	if (val < 0)
+		val = 0;
+	// convert time to position thanks to frequency
+	pos = val * filt_sample->freq;
+	p.time = val;
+	voice_set_position(v, pos);
+}
+
+void player_filtxxx(player_event_t evt)
+{
+	float ret;
+	ret = equalizer_set_gain(evt.sig - FILTLOW_SIG, evt.val);
+	if (ret == MAX_GAIN - 1)
+	{
+		error_at_line(-1, 0, __FILE__, __LINE__,
+					  "error in equalizer set gain(%d, %f)",
+					  evt.sig - FILTLOW_SIG, evt.val);
+	}
+	p.eq_gain[evt.sig - FILTLOW_SIG] = ret;
+	filt_pos = pos;
 }
 
 /**
@@ -350,7 +388,6 @@ void player_init(const char *path)
  */
 static void player_dispatch_body(player_event_t evt)
 {
-	int ret;
 	switch (evt.sig)
 	{
 	case STOP_SIG:
@@ -369,37 +406,21 @@ static void player_dispatch_body(player_event_t evt)
 		player_forward();
 		break;
 	case VOL_SIG:
-		if (evt.val > 100)
-			evt.val = 100;
-		if (evt.val < 0)
-			evt.val = 0;
-		// convert [0-100] scale to [0-255] scale
-		voice_set_volume(v, (int)(evt.val * 2.55));
-		p.volume = (int)evt.val;
+		player_volume(evt.val);
 		break;
 	case JUMP_SIG:
-		if (evt.val > p.duration)
-			evt.val = p.duration;
-		if (evt.val < 0)
-			evt.val = 0;
-		// convert time to position thanks to frequency
-		pos = evt.val * filt_sample->freq;
-		p.time = evt.val;
-		voice_set_position(v, pos);
+		player_jump(evt.val);
 		break;
 	case FILTLOW_SIG:
 	case FILTMED_SIG:
 	case FILTMEDHIG_SIG:
 	case FILTHIG_SIG:
-		if (abs(evt.val) > MAX_GAIN)
-		{
-			evt.val = (evt.val < 0) ? -MAX_GAIN : MAX_GAIN;
-		}
-		// TODO: control on evt.val and ret value for error detection
-		ret = equalizer_set_gain(evt.sig - FILTLOW_SIG, evt.val);
-		p.eq_gain[evt.sig - FILTLOW_SIG] = ret;
-		filt_pos = pos;
+		player_filtxxx(evt);
 		break;
+	case EXIT_SIG:
+		destroy_sample(filt_sample);
+		destroy_sample(orig_sample);
+		pthread_exit(NULL);
 	default:
 		break;
 	}
@@ -434,6 +455,8 @@ static void player_filt()
  */
 static void player_stop()
 {
+	if (p.state == STOP)
+		return;
 	if (p.state != PAUSE)
 		voice_stop(v);
 	if (p.state == REWIND || p.state == FORWARD)
@@ -474,10 +497,10 @@ static void player_play()
  */
 static void player_pause()
 {
-	if (p.state != STOP && p.state != PAUSE)
-	{
+	if (p.state == STOP)
+		return;
+	if (p.state != PAUSE)
 		voice_stop(v);
-	}
 	if (p.state == REWIND || p.state == FORWARD)
 	{
 		voice_set_frequency(v, filt_sample->freq);
@@ -495,7 +518,9 @@ static void player_pause()
  */
 static void player_rewind()
 {
-	if (p.state != REWIND && p.state != STOP)
+	if (p.state == STOP)
+		return;
+	if (p.state != REWIND)
 	{
 		voice_set_playmode(v, PLAYMODE_BACKWARD);
 		voice_set_position(v, pos);
@@ -530,16 +555,6 @@ static void player_forward()
 		voice_start(v);
 	}
 	p.state = FORWARD;
-}
-
-/**
- * @brief player destructor
- * 
- */
-void player_xtor()
-{
-	destroy_sample(filt_sample);
-	destroy_sample(orig_sample);
 }
 
 /**
@@ -600,6 +615,7 @@ static void *player_run(void *arg)
 
 	while (1)
 	{
+		pthread_mutex_lock(&player_mutex);
 		if (p.state != STOP && p.state != PAUSE)
 		{
 			// allegro set position = -1 when the song reached the end.
@@ -619,20 +635,20 @@ static void *player_run(void *arg)
 				update_spectogram(filt_sample, p.filt_spect);
 			}
 		}
+		pthread_mutex_unlock(&player_mutex);
 
 		pthread_mutex_lock(&player_event_mutex);
 		evt = player_event;
-		player_event.sig = 0;
+		player_event.sig = EMPTY_SIG;
 		pthread_mutex_unlock(&player_event_mutex);
 		// event different from empty
-		if (evt.sig != 0)
-			player_dispatch_body(evt);
-
-		if (_player_exit)
+		if (evt.sig != EMPTY_SIG)
 		{
-			player_xtor();
-			pthread_exit(NULL);
+			pthread_mutex_lock(&player_mutex);
+			player_dispatch_body(evt);
+			pthread_mutex_unlock(&player_mutex);
 		}
+
 		if (deadline_miss(&tp))
 			printf("PLAYER MISS\n");
 		wait_for_period(&tp);
@@ -645,5 +661,101 @@ static void *player_run(void *arg)
  */
 void player_exit()
 {
-	_player_exit = 1;
+	player_dispatch((player_event_t){
+		sig : EXIT_SIG,
+	});
+}
+
+player_state_t player_get_state()
+{
+	player_state_t s;
+	pthread_mutex_lock(&player_mutex);
+	s = p.state;
+	pthread_mutex_unlock(&player_mutex);
+	return s;
+}
+
+void player_get_trackname(char *dst)
+{
+	// trackname doesn't change
+	strcpy(p.trackname, dst);
+}
+
+float player_get_time()
+{
+	float time;
+	pthread_mutex_lock(&player_mutex);
+	time = p.time;
+	pthread_mutex_unlock(&player_mutex);
+	return time;
+};
+
+float player_get_duration()
+{
+	//duration doesn't change
+	return p.duration;
+};
+
+float player_get_time_data()
+{
+	float time_data;
+	pthread_mutex_lock(&player_mutex);
+	time_data = p.time_data;
+	pthread_mutex_unlock(&player_mutex);
+	return time_data;
+};
+
+int player_get_bits()
+{
+	// bits don't change
+	return p.bits;
+};
+
+void player_get_orig_spect(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.orig_spect, sizeof(p.orig_spect));
+	pthread_mutex_unlock(&player_mutex);
+};
+
+void player_get_filt_spect(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.filt_spect, sizeof(p.filt_spect));
+	pthread_mutex_unlock(&player_mutex);
+};
+
+float player_get_dynamic_range()
+{
+	// dynamic_range doesn't change
+	return p.dynamic_range;
+};
+
+float player_get_freq_spacing()
+{
+	// freq_spacing doesn't change
+	return p.freq_spacing;
+};
+
+unsigned int player_get_volume()
+{
+	unsigned int volume;
+	pthread_mutex_lock(&player_mutex);
+	volume = p.volume;
+	pthread_mutex_unlock(&player_mutex);
+	return volume;
+};
+
+void player_get_eq_gain(float *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, p.eq_gain, sizeof(p.eq_gain));
+	pthread_mutex_unlock(&player_mutex);
+};
+
+void player_get_player(Player_t *dst)
+{
+	pthread_mutex_lock(&player_mutex);
+	memcpy(dst, &p, sizeof(Player_t));
+	pthread_mutex_unlock(&player_mutex);
 }

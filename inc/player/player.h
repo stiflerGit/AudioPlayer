@@ -27,6 +27,9 @@
 #define MAX_GAIN 15 /**< max gain in deciBel. */
 #endif
 
+#define PLAYER_PERIOD 80
+#define PLAYER_DEADLINE 80
+#define PLAYER_PRIORITY 20
 /**
  * @brief	Signals by means of interact with the Player_t.
  *
@@ -37,6 +40,7 @@
  */
 typedef enum
 {
+	EXIT_SIG,
 	EMPTY_SIG = 0,  /**< Do nothing. */
 	TICK_SIG,		/**< Tick signal. */
 	STOP_SIG,		/**< Stop the track. */
@@ -103,8 +107,6 @@ typedef struct
 	float eq_gain[PLAYER_NFILT]; /**< gain at each frequency. */
 } Player_t;
 
-extern Player_t p; /**< The player struct.*/
-
 /**
  * @brief Initialize the player
  * 
@@ -128,8 +130,99 @@ pthread_t *player_start(task_par_t *task_par);
 void player_dispatch(player_event_t evt);
 
 /**
- * @brief notice the player thread to exit.
+ * @brief shortcut for player_dispatch EXIT_SIG
  */
 void player_exit();
+
+/**
+ * @brief 
+ * 
+ * @return player_state_t 
+ */
+player_state_t player_get_state();
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_trackname(char *dst);
+
+/**
+ * @brief 
+ * 
+ * @return float 
+ */
+float player_get_time();
+
+/**
+ * @brief 
+ * 
+ * @return float 
+ */
+float player_get_duration();
+
+/**
+ * @brief 
+ * 
+ * @return float 
+ */
+float player_get_time_data();
+
+/**
+ * @brief 
+ * 
+ * @return int 
+ */
+int player_get_bits();
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_orig_spect(float *dst);
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_filt_spect(float *dst);
+
+/**
+ * @brief 
+ * 
+ * @return float 
+ */
+float player_get_dynamic_range();
+
+/**
+ * @brief 
+ * 
+ * @return float 
+ */
+float player_get_freq_spacing();
+
+/**
+ * @brief 
+ * 
+ * @return unsigned int 
+ */
+unsigned int player_get_volume();
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_eq_gain(float *dst);
+
+/**
+ * @brief 
+ * 
+ * @param dst 
+ */
+void player_get_player(Player_t *dst);
 
 #endif /* PLAYER_H_ */
