@@ -707,7 +707,7 @@ float player_get_time_data()
 
 int player_get_bits()
 {
-	// bits doesn't change
+	// bits don't change
 	return p.bits;
 };
 
