@@ -57,8 +57,10 @@ static pthread_mutex_t player_mutex =
 static pthread_mutex_t player_event_mutex =
 	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the event. */
 
-static char _player_exit = 0; /**< variable to notice the thread that has to exit. */
-static pthread_mutex_t _player_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+static char _player_exit = 0; /**< variable to notice the 
+	thread that has to exit. */
+static pthread_mutex_t _player_exit_mutex = PTHREAD_MUTEX_INITIALIZER; 
+	/**< mutex for the _player_exit variable*/
 
 /**
  * @brief player thread routine
@@ -766,7 +768,7 @@ unsigned int player_get_volume()
 	return volume;
 };
 
-void player_get_eq_gain(float *dst)
+void player_get_eq_gain(float dst[])
 {
 	pthread_mutex_lock(&player_mutex);
 	memcpy(dst, p.eq_gain, sizeof(p.eq_gain));

@@ -43,8 +43,8 @@ struct filter
 /**
  * @brief set the gain of the filter
  * 
- * @param f 
- * @param gain 
+ * @param f[inout] pointer to the filter
+ * @param gain[in] value of the gain in dB
  */
 static void filt_set_gain(filter_t *f, float gain)
 {
@@ -95,9 +95,9 @@ static void filter_filtb(filter_t *f, float buf[], unsigned int count)
 }
 
 /**
- * @brief 
+ * @brief calculate coefficients, of a filter, that depends only from gain
  * 
- * @param f 
+ * @param f[inout] pointer to the filter
  */
 static void low_shelf_filter_calc_coef(filter_t *f)
 {
@@ -130,6 +130,12 @@ static void low_shelf_filter_calc_coef(filter_t *f)
     f->b2 = b2 / a0;
 }
 
+/**
+ * @brief init the coefficients, of a filter, that depend only from audio_frequency
+ * 
+ * @param f[inout] pointer to the filter
+ * @param frequency[in] frequency of the track that will be filt
+ */
 static void low_shelf_filter_init(filter_t *f, int frequency)
 {
     f->g = 0;
@@ -140,8 +146,14 @@ static void low_shelf_filter_init(filter_t *f, int frequency)
     f->s = sin(f->w0);
 
     f->calc_coef = low_shelf_filter_calc_coef;
+    f->calc_coef(f);
 }
 
+/**
+ * @brief calculate coefficients, of a filter, that depends only from gain
+ * 
+ * @param f[inout] pointer to the filter
+ */
 static void high_shelf_filter_calc_coef(filter_t *f)
 {
     float a0, a1, a2;
@@ -173,6 +185,12 @@ static void high_shelf_filter_calc_coef(filter_t *f)
     f->b2 = b2 / a0;
 }
 
+/**
+ * @brief init the coefficients, of a filter, that depend only from audio_frequency
+ * 
+ * @param f[inout] pointer to the filter
+ * @param frequency[in] frequency of the track that will be filt
+ */
 static void high_shelf_filter_init(filter_t *f, int frequency)
 {
     f->g = 0;
@@ -183,12 +201,13 @@ static void high_shelf_filter_init(filter_t *f, int frequency)
     f->s = sin(f->w0);
 
     f->calc_coef = high_shelf_filter_calc_coef;
+    f->calc_coef(f);
 }
 
 /**
  * @brief calculate coefficients, of a filter, that depends only from gain
  * 
- * @param i	index of the filter whos compute coefficients
+ * @param f[inout] pointer to the filter
  */
 static void peakingEQ_filter_calc_coef(filter_t *f)
 {
@@ -225,7 +244,8 @@ static void peakingEQ_filter_calc_coef(filter_t *f)
 /**
  * @brief init the coefficients, of a filter, that depend only from audio_frequency
  * 
- * @param i	index of the filter whos compute coefficients
+ * @param f[inout] pointer to the filter
+ * @param frequency[in] frequency of the track that will be filt
  */
 static void peakingEQ_filter_init(filter_t *f, int frequency)
 {
@@ -237,6 +257,7 @@ static void peakingEQ_filter_init(filter_t *f, int frequency)
     f->s = sin(f->w0);
 
     f->calc_coef = peakingEQ_filter_calc_coef;
+    f->calc_coef(f);
 }
 
 static filter_t eq_filt[NFILT]; /**< coefficients for each filter of the player. */
@@ -253,18 +274,9 @@ void equalizer_init(int freq)
         error_at_line(-1, 0, __FILE__, __LINE__, "audio frequency can't be negative: %d", freq);
     }
     audio_frequency = freq;
-    //first filter is a low shef
-    // low_shelf_filter_init(&(eq_filt[0]), equalizer_freq[0]);
     for (int i = 0; i < NFILT; i++)
     {
         peakingEQ_filter_init(&(eq_filt[i]), equalizer_freq[i]);
-    }
-    //last filter is an high shelf
-    // high_shelf_filter_init(&eq_filt[NFILT - 1], freq);
-
-    for (int i = 0; i < NFILT; i++)
-    {
-        eq_filt[i].calc_coef(&eq_filt[i]);
     }
 }
 
@@ -306,7 +318,6 @@ float equalizer_set_gain(int filt, float gain)
     {
         gain = (gain < 0) ? -MAX_GAIN : MAX_GAIN;
     }
-    eq_filt[filt].g = gain;
-    eq_filt[filt].calc_coef(&eq_filt[filt]);
+    filt_set_gain(&eq_filt[filt], gain);
     return eq_filt[filt].g;
 }

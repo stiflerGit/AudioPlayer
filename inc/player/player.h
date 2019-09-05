@@ -134,91 +134,91 @@ void player_dispatch(player_event_t evt);
 void player_exit();
 
 /**
- * @brief 
+ * @brief get state of the player
  * 
  * @return player_state_t 
  */
 player_state_t player_get_state();
 
 /**
- * @brief 
+ * @brief get the trackname of the playing song
  * 
- * @param dst 
+ * @param dst[out] buffer where the name will be saved
  */
 void player_get_trackname(char *dst);
 
 /**
- * @brief 
+ * @brief get the reproduction time
  * 
  * @return float 
  */
 float player_get_time();
 
 /**
- * @brief 
+ * @brief get the duration of the song
  * 
  * @return float 
  */
 float player_get_duration();
 
 /**
- * @brief 
+ * @brief get the data currently playing
  * 
  * @return float 
  */
 float player_get_time_data();
 
 /**
- * @brief 
+ * @brief get the bits resolution of the samples og the song
  * 
  * @return int 
  */
 int player_get_bits();
 
 /**
- * @brief 
+ * @brief get the spectogram of the unequalized song
  * 
  * @param dst 
  */
 void player_get_orig_spect(float *dst);
 
 /**
- * @brief 
+ * @brief get the spectogram of the equalized song
  * 
  * @param dst 
  */
 void player_get_filt_spect(float *dst);
 
 /**
- * @brief 
+ * @brief get the dynamic range
  * 
  * @return float 
  */
 float player_get_dynamic_range();
 
 /**
- * @brief 
+ * @brief get the frequency spacing between the bins of the spectogram
  * 
  * @return float 
  */
 float player_get_freq_spacing();
 
 /**
- * @brief 
+ * @brief get the currently volume
  * 
  * @return unsigned int 
  */
 unsigned int player_get_volume();
 
 /**
- * @brief 
+ * @brief get the gains of the filters of the equalizer
  * 
  * @param dst 
  */
-void player_get_eq_gain(float *dst);
+void player_get_eq_gain(float dst[]);
 
 /**
- * @brief 
+ * @brief get a full copy of the player
  * 
  * @param dst 
  */
