@@ -5,8 +5,9 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * Implementation of the Controller thread. The main function, i.e.
- * the controller routine executed periodically is the controller_run.
+ * Controller listen for the user inputs. When an user input comes, it
+ * interacts with the player and eventually with the view, in order to
+ * make them change them status.
  * 
  */
 #include "controller.h"
@@ -42,8 +43,9 @@ static task_par_t tp = {
 static pthread_t tid; /**< thread identifier of the controller. */
 
 static char _controller_exit = 0; /**< variable to notice the thread that has to exit. */
-static pthread_mutex_t _controller_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
-
+static pthread_mutex_t _controller_exit_mutex = 
+	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the _player_exit variable*/
+											
 static void *controller_run(void *arg);
 static void controller_xtor();
 
@@ -136,10 +138,6 @@ pthread_t *controller_start(task_par_t *task_par)
 /**
  * @brief controller thread routine
  * 
- * Periodically the controller check for user clicks, and, when it
- * happens, find the graphic object clicked and the event that it should
- * raise. Finally the correct event is dispatched to the player 
- * 
  * @param arg pointer to the argument passed to the routine(actually task 
  * paramenters)
  * @return void* pointer to the returned variable of the routine
@@ -213,6 +211,10 @@ void controller_exit()
 	pthread_mutex_unlock(&_controller_exit_mutex);
 }
 
+/**
+ * @brief controller destructor
+ * 
+ */
 static void controller_xtor()
 {
 	pthread_mutex_destroy(&_controller_exit_mutex);

@@ -43,18 +43,25 @@ struct fspect_panel_t
 {
 	Node bars[227];		/**< Bars of the spectogram. */
 	unsigned char zoom; /**< Actual zoom of the panel.
-					It changes the no. bar shown. */
-	unsigned int ID_PANEL;
+							 It changes the no. bar shown. */
+	unsigned int id;
 };
 
-struct fspect_panel_t filt_spect_panel;
-struct fspect_panel_t orig_spect_panel;
+struct fspect_panel_t filt_spect_panel; /**< filtered frequency spectrum 
+											 panel */
+struct fspect_panel_t orig_spect_panel; /**< original(not equalized) frequency
+	 										 spectrum panel */
 
 static Player_t old_p, actual_p; /**< Previous player state. */
 
 /*******************************************************************************
  *				TIME DATA PANEL
  ******************************************************************************/
+
+/**
+ * @brief refresh the time data panel
+ * 
+ */
 static void timedata_panel_update()
 {
 	Node *n;
@@ -96,7 +103,7 @@ static int fspect_panel_init(struct fspect_panel_t *panel)
 
 	nbar = ZOOM_TO_BAR[panel->zoom];
 	// first node in a panel is the frame.
-	frame = &nodes[panel->ID_PANEL][0];
+	frame = &nodes[panel->id][0];
 	bar_x = frame->x + 1;
 	bar_col = RED;
 
@@ -113,8 +120,8 @@ static int fspect_panel_init(struct fspect_panel_t *panel)
 		bar_col = RED;
 	}
 
-	g_draw(&(nodes[panel->ID_PANEL][ZOOMIN_BTN]));
-	g_draw(&(nodes[panel->ID_PANEL][ZOOMOUT_BTN]));
+	g_draw(&(nodes[panel->id][ZOOMIN_BTN]));
+	g_draw(&(nodes[panel->id][ZOOMOUT_BTN]));
 
 	return 0;
 }
@@ -175,7 +182,7 @@ static void fspect_bar_update(struct fspect_panel_t *panel, unsigned int i,
 	}
 	// since height is in the [0-100] range we can obtain easily the new
 	// height by multiplying for Panel Height
-	n = &nodes[panel->ID_PANEL][0];
+	n = &nodes[panel->id][0];
 	height = n->h * height / 100;
 	n = &panel->bars[i];
 	// delta could be negative or positive.
@@ -186,10 +193,10 @@ static void fspect_bar_update(struct fspect_panel_t *panel, unsigned int i,
 	rectfill(screen, n->x, n->y, n->x + n->w, n->y + delta, col);
 	unscare_mouse();
 	// if the bar draw on the buttons re-draws them
-	if (is_inside(&nodes[panel->ID_PANEL][ZOOMIN_BTN], n->x, n->y))
-		g_draw(&nodes[panel->ID_PANEL][ZOOMIN_BTN]);
-	if (is_inside(&nodes[panel->ID_PANEL][ZOOMOUT_BTN], n->x, n->y))
-		g_draw(&nodes[panel->ID_PANEL][ZOOMOUT_BTN]);
+	if (is_inside(&nodes[panel->id][ZOOMIN_BTN], n->x, n->y))
+		g_draw(&nodes[panel->id][ZOOMIN_BTN]);
+	if (is_inside(&nodes[panel->id][ZOOMOUT_BTN], n->x, n->y))
+		g_draw(&nodes[panel->id][ZOOMOUT_BTN]);
 	// update bar state
 	n->y += delta;
 	n->h = height;
@@ -349,27 +356,25 @@ static void control_draw()
  *				VIEW
  ******************************************************************************/
 /**
- * @brief Initialize the GUI
+ * @brief Initialize the GUI.
+ * 
+ * This needs to be called before the start. Anyway, a view needs the player to
+ * render, so it is highly reccomended to init the player before init the view
  *
- * It call first the allegro functions that initialiaze a Windows on the screen
- * Than draw all graphic objects defined statically in the configuration file.
- * The only things that need to be initialized dinamically are the spectograms
- * bars, but only for pratically reasons.
- * Take the first copy of Player actual_p.
  */
 void view_init()
 {
 	int i, j; /**< Array indexes. */
 	Node *n;  /**< Pointer to a graphic Obj. */
-
+	// draw the window and clear with the background color
 	set_color_depth(COL_D);
 	set_gfx_mode(GFX_AUTODETECT_WINDOWED, WIN_W, WIN_H, 0, 0);
 	clear_to_color(screen, 0);
-
+	// draw the title
 	n = &nodes[TITLE_PANEL][TITLEP_TXT];
 	strcpy(((text *)n->dp)->str, actual_p.trackname);
 	strcat(((text *)n->dp)->str, "       ");
-
+	// draw each node
 	for (i = 0; i < NPANEL; i++)
 	{
 		for (j = 0; j < nodes_size[i]; j++)
@@ -377,18 +382,16 @@ void view_init()
 			g_draw(&(nodes[i][j]));
 		}
 	}
-
+	// init the fspect panel
 	filt_spect_panel.zoom = 4;
-	filt_spect_panel.ID_PANEL = FILT_SP_PANEL;
+	filt_spect_panel.id = FILT_SP_PANEL;
 	fspect_panel_init(&filt_spect_panel);
 	orig_spect_panel.zoom = 4;
-	orig_spect_panel.ID_PANEL = ORIG_SP_PANEL;
+	orig_spect_panel.id = ORIG_SP_PANEL;
 	fspect_panel_init(&orig_spect_panel);
 
-	// TODO: change
 	player_get_player(&old_p);
 
-	// What if the player already started to play??
 	nodes[CTRL_PANEL][STOP_BTN].fg = RED;
 	g_draw(&nodes[CTRL_PANEL][STOP_BTN]);
 
@@ -398,11 +401,7 @@ void view_init()
 
 /**
  * @brief Looks at the actual Player outputs and represent its on the screen
- *
- * Compare the actual Player output and the last copy of player the View has,
- * updated the last time view_update has been called.
- * If something is changed it represents such a change and update its player 
- * copy.
+ * 
  */
 static void view_run_body()
 {
@@ -443,7 +442,6 @@ static void view_run_body()
 		timedata_panel_update();
 	}
 	// PLAYER SPECTOGRAM
-	// TODO: da rivedere
 	nbv = ZOOM_TO_BAR[filt_spect_panel.zoom];
 	spv = PLAYER_WINDOW_SIZE_CPX / nbv;
 	for (i = 0; i < nbv; i++)
@@ -559,7 +557,7 @@ pthread_t *view_start(task_par_t *task_par)
 /**
  * @brief view thread routine
  * 
- * @param[in] arg  argument passed to the routine(actually nothing is passed)
+ * @param[in] arg  argument passed to the routine(actually is not used)
  * @return void* pointer to the variable returned by the thread(actually nothing)
  */
 static void *view_run(void *arg)

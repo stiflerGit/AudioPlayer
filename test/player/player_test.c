@@ -203,5 +203,3 @@ Test(transitions, stop_state)
 
 	player_exit();
 }
-
-//gcc -o player_test player_test.c player.c equalizer.c ../ptask.c -I../../include -lpthread -lm -lfftw3f -lcmocka  `allegro-config --libs`

@@ -5,7 +5,7 @@
  * @version 0.1
  * @date 2019-03-17
  * 
- * //TODO: 
+ * //TODO: zoom buttons
  */
 #ifndef VIEW_H_
 #define VIEW_H_
