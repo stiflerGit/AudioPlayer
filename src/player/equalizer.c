@@ -17,7 +17,8 @@
 
 static int audio_frequency; /**< sampling frequency of the input signal. */
 
-const int equalizer_freq[NFILT] = {250, 2000, 5000, 10000}; /**< center frequencies of filters*/
+const int equalizer_freq[EQ_NFILT] = {250, 2000, 5000, 10000};
+                                     /**< center frequencies of filters*/
 
 /**
  * @brief contains all coefficients needed to filter a sample.
@@ -260,7 +261,7 @@ static void peakingEQ_filter_init(filter_t *f, int frequency)
     f->calc_coef(f);
 }
 
-static filter_t eq_filt[NFILT]; /**< coefficients for each filter of the player. */
+static filter_t eq_filt[EQ_NFILT]; /**< coefficients for each filter of the player. */
 
 /**
  * @brief initialize the equalizer
@@ -274,7 +275,7 @@ void equalizer_init(int freq)
         error_at_line(-1, 0, __FILE__, __LINE__, "audio frequency can't be negative: %d", freq);
     }
     audio_frequency = freq;
-    for (int i = 0; i < NFILT; i++)
+    for (int i = 0; i < EQ_NFILT; i++)
     {
         peakingEQ_filter_init(&(eq_filt[i]), equalizer_freq[i]);
     }
@@ -293,7 +294,7 @@ int equalizer_equalize(float buf[], unsigned int count)
     { // equalizer init not called
         return -1;
     }
-    for (int i = 0; i < NFILT; i++)
+    for (int i = 0; i < EQ_NFILT; i++)
         filter_filtb(&eq_filt[i], buf, count);
     return count;
 }
@@ -307,16 +308,16 @@ int equalizer_equalize(float buf[], unsigned int count)
  */
 float equalizer_set_gain(int filt, float gain)
 {
-    if (filt < 0 || filt >= NFILT)
+    if (filt < 0 || filt >= EQ_NFILT)
     {
         error_at_line(0, 0, __FILE__, __LINE__,
                       "filter index out of bound %d, min is %d, max is %d",
-                      filt, 0, NFILT - 1);
-        return -MAX_GAIN - 1;
+                      filt, 0, EQ_NFILT - 1);
+        return -EQ_FILT_MAX_GAIN - 1;
     }
-    if (fabs(gain) > MAX_GAIN)
+    if (fabs(gain) > EQ_FILT_MAX_GAIN)
     {
-        gain = (gain < 0) ? -MAX_GAIN : MAX_GAIN;
+        gain = (gain < 0) ? -EQ_FILT_MAX_GAIN : EQ_FILT_MAX_GAIN;
     }
     filt_set_gain(&eq_filt[filt], gain);
     return eq_filt[filt].g;

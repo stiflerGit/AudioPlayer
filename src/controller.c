@@ -78,7 +78,9 @@ static void control(Node *n, int x, int y)
 	case FILTMED_SIG:
 	case FILTMEDHIG_SIG:
 	case FILTHIG_SIG:
-		evt.val = -(MAX_GAIN * 2) * ((float)(y - n->y)) / (float)n->h + MAX_GAIN;
+		evt.val = -(PLAYER_EQ_MAX_GAIN * 2) 
+			* ((float)(y - n->y)) / (float)n->h 
+			+ PLAYER_EQ_MAX_GAIN;
 		break;
 	case VOL_SIG:
 		evt.val = 100 * ((float)(n->y + n->h - y)) / (float)n->h;

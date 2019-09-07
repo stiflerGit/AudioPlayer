@@ -226,7 +226,10 @@ static float blackman_harris(int n)
 	const float a3 = 0.01168f;
 	float wn;
 
-	wn = (float)(a0 - a1 * cos((2 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) + a2 * cos((4 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) - a3 * cos((6 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)));
+	wn = (float)(a0 
+		- a1 * cos((2 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) 
+		+ a2 * cos((4 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) 
+		- a3 * cos((6 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)));
 
 	return wn;
 }
@@ -379,7 +382,7 @@ void player_filtxxx(player_event_t evt)
 {
 	float ret;
 	ret = equalizer_set_gain(evt.sig - FILTLOW_SIG, evt.val);
-	if (ret == MAX_GAIN - 1)
+	if (ret == PLAYER_EQ_MAX_GAIN - 1)
 	{
 		error_at_line(-1, 0, __FILE__, __LINE__,
 					  "error in equalizer set gain(%d, %f)",

@@ -21,15 +21,10 @@
 #define PLAYER_WINDOW_SIZE (8192) /**< Size of the Windows for spectogram \
 				  computation. */
 #define PLAYER_WINDOW_SIZE_CPX ((PLAYER_WINDOW_SIZE / 2) + 1)
-#define PLAYER_NFILT (4) /**< No. Filters implementig EQ. */
 
-#ifndef MAX_GAIN
-#define MAX_GAIN 15 /**< max gain in deciBel. */
-#endif
+#define PLAYER_EQ_NFILT (4)		/**< No. Filters implementig EQ. */
+#define PLAYER_EQ_MAX_GAIN (15)	/**< max gain in deciBel. */
 
-#define PLAYER_PERIOD 80
-#define PLAYER_DEADLINE 80
-#define PLAYER_PRIORITY 20
 /**
  * @brief	Signals by means of interact with the Player_t.
  *
@@ -103,7 +98,7 @@ typedef struct
 	float dynamic_range;		 /**< Decibel range of each spect. term.*/
 	float freq_spacing;			 /**< Frequency spacing between each spect. term */
 	unsigned int volume;		 /**< Reproducing volume [0-100]. */
-	float eq_gain[PLAYER_NFILT]; /**< gain at each frequency. */
+	float eq_gain[PLAYER_EQ_NFILT]; /**< gain at each frequency. */
 } Player_t;
 
 /**
