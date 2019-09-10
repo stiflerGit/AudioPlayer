@@ -140,31 +140,31 @@ Test(unit, equalizer_set_gain)
 				.filt = -1,
 				.gain = 0.0,
 			},
-			.wants = -MAX_GAIN - 1,
+			.wants = -EQ_FILT_MAX_GAIN - 1,
 		},
 		{
-			.name = "filt out of bound NFILT",
+			.name = "filt out of bound EQ_NFILT",
 			.args = {
-				.filt = NFILT,
+				.filt = EQ_NFILT,
 				.gain = 0.0,
 			},
-			.wants = -MAX_GAIN - 1,
+			.wants = -EQ_FILT_MAX_GAIN - 1,
 		},
 		{
-			.name = "gain out of bound MAX_GAIN + 1",
+			.name = "gain out of bound EQ_FILT_MAX_GAIN + 1",
 			.args = {
 				.filt = 0,
-				.gain = MAX_GAIN + 1,
+				.gain = EQ_FILT_MAX_GAIN + 1,
 			},
-			.wants = MAX_GAIN,
+			.wants = EQ_FILT_MAX_GAIN,
 		},
 		{
-			.name = "gain out of bound -MAX_GAIN - 1",
+			.name = "gain out of bound -EQ_FILT_MAX_GAIN - 1",
 			.args = {
 				.filt = 3,
-				.gain = -MAX_GAIN - 1,
+				.gain = -EQ_FILT_MAX_GAIN - 1,
 			},
-			.wants = -MAX_GAIN,
+			.wants = -EQ_FILT_MAX_GAIN,
 		},
 		{
 			.name = "nominal",
@@ -178,33 +178,33 @@ Test(unit, equalizer_set_gain)
 			.name = "left bound",
 			.args = (args){
 				.filt = 0,
-				.gain = -MAX_GAIN,
+				.gain = -EQ_FILT_MAX_GAIN,
 			},
-			.wants = -MAX_GAIN,
+			.wants = -EQ_FILT_MAX_GAIN,
 		},
 		{
 			.name = "right bound",
 			.args = (args){
 				.filt = 0,
-				.gain = MAX_GAIN,
+				.gain = EQ_FILT_MAX_GAIN,
 			},
-			.wants = MAX_GAIN,
+			.wants = EQ_FILT_MAX_GAIN,
 		},
 		{
 			.name = "half left bound",
 			.args = (args){
 				.filt = 0,
-				.gain = -MAX_GAIN / 2,
+				.gain = -EQ_FILT_MAX_GAIN / 2,
 			},
-			.wants = -MAX_GAIN / 2,
+			.wants = -EQ_FILT_MAX_GAIN / 2,
 		},
 		{
 			.name = "half right bound",
 			.args = (args){
 				.filt = 0,
-				.gain = MAX_GAIN / 2,
+				.gain = EQ_FILT_MAX_GAIN / 2,
 			},
-			.wants = MAX_GAIN / 2,
+			.wants = EQ_FILT_MAX_GAIN / 2,
 		},
 		{.name = ""}};
 
@@ -222,8 +222,8 @@ Test(unit, equalizer_set_gain)
 	}
 }
 
-// TODO: Give a correct name to the suite
 TestSuite(signal, .init = init);
+
 /**
  * @brief test the equalization output when no gain
  *
@@ -231,13 +231,13 @@ TestSuite(signal, .init = init);
 Test(signal, equalize_no_gain)
 {
 	// signals on the center frequency of the filters
-	signal_t *source_signals[NFILT] = {
+	signal_t *source_signals[EQ_NFILT] = {
 		signal_new(1.0f, 250, 44100, 100),
 		signal_new(1.0f, 2000, 44100, 100),
 		signal_new(1.0f, 5000, 44100, 100),
 		signal_new(1.0f, 10000, 44100, 100),
 	};
-	signal_t *amplified_signals[NFILT] = {
+	signal_t *amplified_signals[EQ_NFILT] = {
 		signal_new(1.0f, 250, 44100, 100),
 		signal_new(1.0f, 2000, 44100, 100),
 		signal_new(1.0f, 5000, 44100, 100),
@@ -245,7 +245,7 @@ Test(signal, equalize_no_gain)
 	};
 
 	equalizer_init(44100);
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect everything is almost(noise) untouched
@@ -255,7 +255,7 @@ Test(signal, equalize_no_gain)
 							   "signals must be equal");
 		}
 	}
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
@@ -265,13 +265,13 @@ Test(signal, equalize_no_gain)
 Test(signal, equalize_modify)
 {
 	// signals on the center frequency of the filters
-	signal_t *source_signals[NFILT] = {
+	signal_t *source_signals[EQ_NFILT] = {
 		signal_new(1, 250, 44100, 100),
 		signal_new(1, 2000, 44100, 100),
 		signal_new(1, 5000, 44100, 100),
 		signal_new(1, 10000, 44100, 100),
 	};
-	signal_t *amplified_signals[NFILT] = {
+	signal_t *amplified_signals[EQ_NFILT] = {
 		signal_new(1, 250, 44100, 100),
 		signal_new(1, 2000, 44100, 100),
 		signal_new(1, 5000, 44100, 100),
@@ -280,11 +280,11 @@ Test(signal, equalize_modify)
 
 	equalizer_init(44100);
 
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
-		equalizer_set_gain(i, MAX_GAIN);
+		equalizer_set_gain(i, EQ_FILT_MAX_GAIN);
 	}
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect everything is modified
@@ -292,7 +292,7 @@ Test(signal, equalize_modify)
 						  (*amplified_signals[i]).size * sizeof(float),
 						  "amplified signal and source signal must be different");
 	}
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
@@ -302,13 +302,13 @@ Test(signal, equalize_modify)
 Test(signal, band_isolation)
 {
 	// signals on the center frequency of the filters
-	signal_t *source_signals[NFILT] = {
+	signal_t *source_signals[EQ_NFILT] = {
 		signal_new(1, 250, 44100, 100),
 		signal_new(1, 2000, 44100, 100),
 		signal_new(1, 5000, 44100, 100),
 		signal_new(1, 10000, 44100, 100),
 	};
-	signal_t *amplified_signals[NFILT] = {
+	signal_t *amplified_signals[EQ_NFILT] = {
 		signal_new(1, 250, 44100, 100),
 		signal_new(1, 2000, 44100, 100),
 		signal_new(1, 5000, 44100, 100),
@@ -317,14 +317,14 @@ Test(signal, band_isolation)
 
 	equalizer_init(44100);
 
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
-		for (int j = 0; j < NFILT; j++)
+		for (int j = 0; j < EQ_NFILT; j++)
 		{
 			if (i == j)
 				equalizer_set_gain(j, 0);
 			else
-				equalizer_set_gain(j, MAX_GAIN);
+				equalizer_set_gain(j, EQ_FILT_MAX_GAIN);
 		}
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// I expect the signal will not be touched so much by the equalization
@@ -335,7 +335,7 @@ Test(signal, band_isolation)
 		}
 	}
 	// free memory
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
@@ -347,26 +347,26 @@ Test(signal, band_gain)
 	int i;
 	char path[256], filename[100];
 	// signals on the center frequency of the filters
-	signal_t *source_signals[NFILT] = {
+	signal_t *source_signals[EQ_NFILT] = {
 		signal_new(1.0f, 300, 44100, 100),
 		signal_new(1.0f, 2000, 44100, 100),
 		signal_new(1.0f, 5000, 44100, 100),
 		signal_new(1.0f, 10000, 44100, 100),
 	};
-	signal_t *amplified_signals[NFILT] = {
+	signal_t *amplified_signals[EQ_NFILT] = {
 		signal_new(1.0f, 300, 44100, 100),
 		signal_new(1.0f, 2000, 44100, 100),
 		signal_new(1.0f, 5000, 44100, 100),
 		signal_new(1.0f, 10000, 44100, 100),
 	};
-	signal_t *isolated_signals[NFILT] = {
+	signal_t *isolated_signals[EQ_NFILT] = {
 		signal_new(1.0f, 300, 44100, 100),
 		signal_new(1.0f, 2000, 44100, 100),
 		signal_new(1.0f, 5000, 44100, 100),
 		signal_new(1.0f, 10000, 44100, 100),
 	};
-	FILE *test_results_files[NFILT];
-	for (i = 0; i < NFILT; i++)
+	FILE *test_results_files[EQ_NFILT];
+	for (i = 0; i < EQ_NFILT; i++)
 	{
 		strcpy(path, TEST_RESULTS_DIR);
 		sprintf(filename, "%dHz.dat", (*source_signals[i]).signal_freq);
@@ -384,26 +384,26 @@ Test(signal, band_gain)
 
 	equalizer_init(44100);
 
-	for (int i = 0; i < NFILT; i++)
+	for (int i = 0; i < EQ_NFILT; i++)
 	{
 		// set all filters gain to 0, except for the one that should
 		// act on this signal setted with max gain (AMPLIFY MY SIGNAL)
-		for (int j = 0; j < NFILT; j++)
+		for (int j = 0; j < EQ_NFILT; j++)
 		{
 			if (i == j)
-				equalizer_set_gain(j, MAX_GAIN);
+				equalizer_set_gain(j, EQ_FILT_MAX_GAIN);
 			else
 				equalizer_set_gain(j, 0);
 		}
 		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
 		// set all filters gain to MAX, except for the one that should
 		// act on this signal setted with 0 gain
-		for (int j = 0; j < NFILT; j++)
+		for (int j = 0; j < EQ_NFILT; j++)
 		{
 			if (i == j)
 				equalizer_set_gain(j, 0);
 			else
-				equalizer_set_gain(j, MAX_GAIN);
+				equalizer_set_gain(j, EQ_FILT_MAX_GAIN);
 		}
 		equalizer_equalize((*isolated_signals[i]).data, (*isolated_signals[i]).size);
 		// I expect the amplified signal is always greated than the isolated
@@ -423,5 +423,31 @@ Test(signal, band_gain)
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
 		signal_delete(isolated_signals[i]);
+	}
+}
+
+Test(signal, impulse_responce)
+{
+	float responce[2048];
+	printf("%d\n", sizeof(responce));
+	for (int i = 0; i < 1; i++)
+	{
+		responce[i] = 1.0f;
+	}
+	for (int i = 10; i < 2048; i++)
+	{
+		responce[i] = 0.0f;
+	}
+
+	equalizer_init(2048);
+	equalizer_set_gain(0, 15);
+	equalizer_set_gain(1, 15);
+	equalizer_set_gain(2, 15);
+	equalizer_set_gain(3, 15);
+	equalizer_equalize(responce, 2048);
+
+	for (int i = 0; i < 2048; i++)
+	{
+		printf("%f\n", responce[i]);
 	}
 }

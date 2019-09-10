@@ -18,7 +18,7 @@
 static int audio_frequency; /**< sampling frequency of the input signal. */
 
 const int equalizer_freq[EQ_NFILT] = {250, 2000, 5000, 10000};
-                                     /**< center frequencies of filters*/
+/**< center frequencies of filters*/
 
 /**
  * @brief contains all coefficients needed to filter a sample.
