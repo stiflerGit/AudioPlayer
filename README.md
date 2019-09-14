@@ -1,3 +1,18 @@
+- [Introduction](#introduction)
+- [Requirements](#requirements)
+- [Dependencies](#dependencies)
+  - [Needed libraries](#needed-libraries)
+  - [Additional](#additional)
+  - [Documentation](#documentation)
+- [Building](#building)
+  - [Test](#test)
+  - [Clean](#clean)
+- [Run](#run)
+- [Test](#test-1)
+  - [Gnuplot](#gnuplot)
+- [Documentation](#documentation-1)
+- [Report](#report)
+
 # Introduction
 This project was born to accomplish a school project for the Real-Time Systems class
 > FFT. Develop a program that acquires an audio signal (either from file or from microphone) and display both the amplitude and the frequency spectrum (computed by FFT) as a function of time.The spectrum should be optionally visualized as a waveform or a 2D (time-freq.) color map. The program must provide an graphical interface for a band equalizer.
