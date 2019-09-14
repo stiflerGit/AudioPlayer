@@ -12,7 +12,7 @@
 #include "view/graphic.h"
 
 #ifndef IMAGES_PATH
-#define IMAGES_PATH "/home/universita/workspace/github.com/stiflerGit/AudioPlayer/images/"
+#define IMAGES_PATH "./images/"
 #endif
 
 #define WIN_W 642 /**< Window Width. */
