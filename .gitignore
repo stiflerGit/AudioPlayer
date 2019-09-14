@@ -57,4 +57,10 @@ tags
 # vscode
 /.vscode/
 
+# documentation
+/doc/
+
 player
+player_test
+
+

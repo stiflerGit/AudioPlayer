@@ -36,10 +36,10 @@ static void _mkdir(const char *dir)
 		if (*p == '/')
 		{
 			*p = 0;
-			mkdir(tmp, S_IRWXU);
+			mkdir(tmp, ACCESSPERMS);
 			*p = '/';
 		}
-	mkdir(tmp, S_IRWXU);
+	mkdir(tmp, ACCESSPERMS);
 }
 
 static void init()
