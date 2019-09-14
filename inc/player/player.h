@@ -23,7 +23,7 @@
 #define PLAYER_WINDOW_SIZE_CPX ((PLAYER_WINDOW_SIZE / 2) + 1)
 
 #define PLAYER_EQ_NFILT (4)		/**< No. Filters implementig EQ. */
-#define PLAYER_EQ_MAX_GAIN (15)	/**< max gain in deciBel. */
+#define PLAYER_EQ_MAX_GAIN (15) /**< max gain in deciBel. */
 
 /**
  * @brief	Signals by means of interact with the Player_t.
@@ -95,9 +95,10 @@ typedef struct
 	/**< Spectrogram of the original window. (not filtered song) */
 	float filt_spect[PLAYER_WINDOW_SIZE_CPX];
 	/**< Spectrogram of the reproducing window. (i.e. the filtered song) */
-	float dynamic_range;		 /**< Decibel range of each spect. term.*/
-	float freq_spacing;			 /**< Frequency spacing between each spect. term */
-	unsigned int volume;		 /**< Reproducing volume [0-100]. */
+	float dynamic_range;			/**< Decibel range of each spect. term.*/
+	float freq_spacing;				/**< Frequency spacing between each spect. 
+										term */
+	unsigned int volume;			/**< Reproducing volume [0-100]. */
 	float eq_gain[PLAYER_EQ_NFILT]; /**< gain at each frequency. */
 } Player_t;
 

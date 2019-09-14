@@ -25,7 +25,8 @@ void view_init();
 /**
  * @brief start the view thread
  * 
- * @param[in] task_par    pointer to a struct definig task parameters(not mandatory)
+ * @param[in] task_par    pointer to a struct definig task parameters
+ *                        (not mandatory)
  * @return pthread_t* pointer to the thread identificator
  */
 pthread_t *view_start(task_par_t *tp);

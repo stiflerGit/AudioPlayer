@@ -67,7 +67,8 @@ typedef struct
  * @param duration in milliseconds
  * @return signal_t* pointer to the new signal
  */
-signal_t *signal_new(float amplitude, float signal_freq, float sampling_freq, float duration)
+signal_t *signal_new(float amplitude, float signal_freq, float sampling_freq,
+					 float duration)
 {
 	float time_period;
 	float y;
@@ -229,7 +230,9 @@ Test(unit, equalizer_set_gain)
 	while (strcmp(t->name, "") != 0)
 	{
 		float got = equalizer_set_gain(t->args.filt, t->args.gain);
-		cr_expect_float_eq(got, t->wants, 0.0, "%s: equalizer_set_gain(%d, %f);\texpected: %f got:%f",
+		cr_expect_float_eq(got, t->wants, 0.0,
+						   "%s: equalizer_set_gain(%d, %f);"
+						   "\texpected: %f got:%f",
 						   t->name, t->args.filt, t->args.gain, t->wants, got);
 		i++;
 		t = &testcases[i];
@@ -261,11 +264,13 @@ Test(signal, equalize_no_gain)
 	equalizer_init(44100);
 	for (int i = 0; i < EQ_NFILT; i++)
 	{
-		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
+		equalizer_equalize((*amplified_signals[i]).data,
+						   (*amplified_signals[i]).size);
 		// I expect everything is almost(noise) untouched
 		for (int k = 0; k < 4410; k++)
 		{
-			cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 0.1,
+			cr_assert_float_eq((*amplified_signals[i]).data[k],
+							   (*source_signals[i]).data[k], 0.1,
 							   "signals must be equal");
 		}
 	}
@@ -300,11 +305,14 @@ Test(signal, equalize_modify)
 	}
 	for (int i = 0; i < EQ_NFILT; i++)
 	{
-		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
+		equalizer_equalize((*amplified_signals[i]).data,
+						   (*amplified_signals[i]).size);
 		// I expect everything is modified
-		cr_assert_arr_neq((*amplified_signals[i]).data, (*source_signals[i]).data,
+		cr_assert_arr_neq((*amplified_signals[i]).data,
+						  (*source_signals[i]).data,
 						  (*amplified_signals[i]).size * sizeof(float),
-						  "amplified signal and source signal must be different");
+						  "amplified signal and source signal"
+						  " must be different");
 	}
 	for (int i = 0; i < EQ_NFILT; i++)
 	{
@@ -340,12 +348,15 @@ Test(signal, band_isolation)
 			else
 				equalizer_set_gain(j, EQ_FILT_MAX_GAIN);
 		}
-		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
+		equalizer_equalize((*amplified_signals[i]).data,
+						   (*amplified_signals[i]).size);
 		// I expect the signal will not be touched so much by the equalization
 		for (int k = 0; k < (*amplified_signals[i]).size; k++)
 		{
-			cr_assert_float_eq((*amplified_signals[i]).data[k], (*source_signals[i]).data[k], 10.0f,
-							   "amplified signal and source signal must be equal");
+			cr_assert_float_eq((*amplified_signals[i]).data[k],
+							   (*source_signals[i]).data[k], 10.0f,
+							   "amplified signal and source"
+							   " signal must be equal");
 		}
 	}
 	// free memory
@@ -409,7 +420,8 @@ Test(signal, band_gain)
 			else
 				equalizer_set_gain(j, 0);
 		}
-		equalizer_equalize((*amplified_signals[i]).data, (*amplified_signals[i]).size);
+		equalizer_equalize((*amplified_signals[i]).data,
+						   (*amplified_signals[i]).size);
 		// set all filters gain to MAX, except for the one that should
 		// act on this signal setted with 0 gain
 		for (int j = 0; j < EQ_NFILT; j++)
@@ -419,7 +431,8 @@ Test(signal, band_gain)
 			else
 				equalizer_set_gain(j, EQ_FILT_MAX_GAIN);
 		}
-		equalizer_equalize((*isolated_signals[i]).data, (*isolated_signals[i]).size);
+		equalizer_equalize((*isolated_signals[i]).data,
+						   (*isolated_signals[i]).size);
 		// I expect the amplified signal is always greated than the isolated
 		for (int k = 0; k < (*amplified_signals[i]).size; k++)
 		{

@@ -498,7 +498,8 @@ static void view_run_body()
 		{
 			// EQ SET BAR
 			n = &nodes[EQULZ_PANEL][LFRQ_BAR + i];
-			pix = -(n->h * actual_p.eq_gain[i]) / (PLAYER_EQ_MAX_GAIN * 2) + n->y + n->h / 2;
+			pix = -(n->h * actual_p.eq_gain[i]) / (PLAYER_EQ_MAX_GAIN * 2) +
+				  n->y + n->h / 2;
 			n = &nodes[EQULZ_PANEL][LFRQ_SBAR + i];
 			g_stretch(n, n->x, pix, n->w, n->h);
 			//EQ GAIN LABEL
@@ -558,7 +559,8 @@ pthread_t *view_start(task_par_t *task_par)
  * @brief view thread routine
  * 
  * @param[in] arg  argument passed to the routine(actually is not used)
- * @return void* pointer to the variable returned by the thread(actually nothing)
+ * @return void* pointer to the variable returned by the thread
+ * 				(actually nothing)
  */
 static void *view_run(void *arg)
 {

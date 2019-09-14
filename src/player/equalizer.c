@@ -132,7 +132,7 @@ static void low_shelf_filter_calc_coef(filter_t *f)
 }
 
 /**
- * @brief init the coefficients, of a filter, that depend only from audio_frequency
+ * @brief initializes the coefficients that depend only from audio frequency
  * 
  * @param f[inout] pointer to the filter
  * @param frequency[in] frequency of the track that will be filt
@@ -187,7 +187,7 @@ static void high_shelf_filter_calc_coef(filter_t *f)
 }
 
 /**
- * @brief init the coefficients, of a filter, that depend only from audio_frequency
+ * @brief initializes the coefficients that depend only from audio frequency
  * 
  * @param f[inout] pointer to the filter
  * @param frequency[in] frequency of the track that will be filt
@@ -243,7 +243,7 @@ static void peakingEQ_filter_calc_coef(filter_t *f)
 }
 
 /**
- * @brief init the coefficients, of a filter, that depend only from audio_frequency
+ * @brief initializes the coefficients that depend only from audio frequency
  * 
  * @param f[inout] pointer to the filter
  * @param frequency[in] frequency of the track that will be filt
@@ -261,7 +261,8 @@ static void peakingEQ_filter_init(filter_t *f, int frequency)
     f->calc_coef(f);
 }
 
-static filter_t eq_filt[EQ_NFILT]; /**< coefficients for each filter of the player. */
+static filter_t eq_filt[EQ_NFILT]; /**< coefficients for each filter 
+                                        of the player. */
 
 /**
  * @brief initialize the equalizer
@@ -272,7 +273,8 @@ void equalizer_init(int freq)
 {
     if (freq < 0)
     {
-        error_at_line(-1, 0, __FILE__, __LINE__, "audio frequency can't be negative: %d", freq);
+        error_at_line(-1, 0, __FILE__, __LINE__,
+                      "audio frequency can't be negative: %d", freq);
     }
     audio_frequency = freq;
     for (int i = 0; i < EQ_NFILT; i++)

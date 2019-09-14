@@ -59,14 +59,15 @@ static pthread_mutex_t player_event_mutex =
 
 static char _player_exit = 0; /**< variable to notice the 
 	thread that has to exit. */
-static pthread_mutex_t _player_exit_mutex = PTHREAD_MUTEX_INITIALIZER; 
-	/**< mutex for the _player_exit variable*/
+static pthread_mutex_t _player_exit_mutex = PTHREAD_MUTEX_INITIALIZER;
+/**< mutex for the _player_exit variable*/
 
 /**
  * @brief player thread routine
  * 
  * @param[in] arg  argument passed to the routine(actually nothing is passed)
- * @return void* pointer to the variable returned by the thread(actually nothing)
+ * @return void* pointer to the variable returned by the thread
+ * 				(actually nothing)
  */
 static void *player_run(void *arg);
 
@@ -226,10 +227,9 @@ static float blackman_harris(int n)
 	const float a3 = 0.01168f;
 	float wn;
 
-	wn = (float)(a0 
-		- a1 * cos((2 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) 
-		+ a2 * cos((4 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) 
-		- a3 * cos((6 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)));
+	wn = (float)(a0 - a1 * cos((2 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) +
+				 a2 * cos((4 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)) -
+				 a3 * cos((6 * M_PI * n) / (PLAYER_WINDOW_SIZE - 1)));
 
 	return wn;
 }
@@ -617,7 +617,8 @@ pthread_t *player_start(task_par_t *task_par)
  * different from empty event. If not it calls the dipatch.
  * 
  * @param[in] arg  argument passed to the routine(actually nothing is passed)
- * @return void* pointer to the variable returned by the thread(actually nothing)
+ * @return void* pointer to the variable returned by the thread
+ * 				(actually nothing)
  */
 static void *player_run(void *arg)
 {

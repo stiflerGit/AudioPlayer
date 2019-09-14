@@ -21,8 +21,8 @@ static img zoomin =
 static Node orig_sp_nodes[ORIG_SP_P_NNOD] = {
 	{FRAME, ORIG_SP_P_X, ORIG_SP_P_Y, ORIG_SP_P_W, ORIG_SP_P_H,
 	 WHITE, BLACK, 0, NULL},
-	{IMG, ORIG_SP_P_X + 2, ORIG_SP_P_Y + 1, ORIG_SP_P_W * 0.05, ORIG_SP_P_W * 0.05,
-	 BLACK, BLACK, 0, (void *)&zoomout},
+	{IMG, ORIG_SP_P_X + 2, ORIG_SP_P_Y + 1, ORIG_SP_P_W * 0.05,
+	 ORIG_SP_P_W * 0.05, BLACK, BLACK, 0, (void *)&zoomout},
 	{IMG, ORIG_SP_P_X + 2 + ORIG_SP_P_W * 0.05, ORIG_SP_P_Y + 1,
 	 ORIG_SP_P_W * 0.05, ORIG_SP_P_W * 0.05,
 	 BLACK, BLACK, 0, (void *)&zoomin}};
@@ -33,8 +33,8 @@ static Node orig_sp_nodes[ORIG_SP_P_NNOD] = {
 static Node filt_sp_nodes[FILT_SP_P_NNOD] = {
 	{FRAME, FILT_SP_P_X, FILT_SP_P_Y, FILT_SP_P_W, FILT_SP_P_H,
 	 WHITE, BLACK, 0, NULL},
-	{IMG, FILT_SP_P_X + 2, FILT_SP_P_Y + 1, FILT_SP_P_W * 0.05, FILT_SP_P_W * 0.05,
-	 BLACK, BLACK, 0, (void *)&zoomout},
+	{IMG, FILT_SP_P_X + 2, FILT_SP_P_Y + 1, FILT_SP_P_W * 0.05,
+	 FILT_SP_P_W * 0.05, BLACK, BLACK, 0, (void *)&zoomout},
 	{IMG, FILT_SP_P_X + 2 + FILT_SP_P_W * 0.05, FILT_SP_P_Y + 1,
 	 FILT_SP_P_W * 0.05, FILT_SP_P_W * 0.05,
 	 BLACK, BLACK, 0, (void *)&zoomin}};
@@ -61,7 +61,8 @@ static text eq_gain_lbl[5] = {
 static Node eqlz_nodes[EQLZP_NNOD] = {
 	// FRAME AND SEPARATORS
 	{FRAME, EQLZP_X, EQLZP_Y, EQLZP_W, EQLZP_H, WHITE, BLACK, 0, NULL},
-	{LINE, EQLZP_X + 0.82 * EQLZP_W, EQLZP_Y, 0, EQLZP_H, WHITE, BLACK, 0, NULL},
+	{LINE, EQLZP_X + 0.82 * EQLZP_W, EQLZP_Y, 0, EQLZP_H, WHITE, BLACK, 0,
+	 NULL},
 	{LINE, EQLZP_X, EQLZP_Y + 0.7 * EQLZP_H, EQLZP_W, 0, WHITE, BLACK, 0, NULL},
 	// BARS
 	{BAR, EQLZP_X + EQLZP_W * 0.13, EQLZP_Y + 0.1 * EQLZP_H, EQLZP_W * 0.04,

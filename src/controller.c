@@ -42,10 +42,11 @@ static task_par_t tp = {
 
 static pthread_t tid; /**< thread identifier of the controller. */
 
-static char _controller_exit = 0; /**< variable to notice the thread that has to exit. */
-static pthread_mutex_t _controller_exit_mutex = 
+static char _controller_exit = 0; /**< variable to notice the thread that 
+										has to exit. */
+static pthread_mutex_t _controller_exit_mutex =
 	PTHREAD_MUTEX_INITIALIZER; /**< mutex for the _player_exit variable*/
-											
+
 static void *controller_run(void *arg);
 static void controller_xtor();
 
@@ -78,9 +79,9 @@ static void control(Node *n, int x, int y)
 	case FILTMED_SIG:
 	case FILTMEDHIG_SIG:
 	case FILTHIG_SIG:
-		evt.val = -(PLAYER_EQ_MAX_GAIN * 2) 
-			* ((float)(y - n->y)) / (float)n->h 
-			+ PLAYER_EQ_MAX_GAIN;
+		evt.val = -(PLAYER_EQ_MAX_GAIN * 2) *
+					  ((float)(y - n->y)) / (float)n->h +
+				  PLAYER_EQ_MAX_GAIN;
 		break;
 	case VOL_SIG:
 		evt.val = 100 * ((float)(n->y + n->h - y)) / (float)n->h;
