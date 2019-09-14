@@ -18,7 +18,7 @@
 
 #include <criterion/criterion.h>
 
-#define TEST_AUDIO_FILES_DIR "/home/universita/workspace/github.com/stiflerGit/AudioPlayer/TestAudioFiles/"
+#define TEST_AUDIO_FILES_DIR "./TestAudioFiles/"
 #define TEST_FILE "test.wav"
 
 const player_event_t reset_event = {STOP_SIG, 0.0};
@@ -33,28 +33,6 @@ static void fini()
 {
 	allegro_exit();
 }
-
-// TestSuite(unit, .init = init, .fini = fini);
-
-// Test(unit, player_dispatch)
-// {
-// 	typedef struct
-// 	{
-// 		char *name;
-// 		player_event_t args;
-// 		wants;
-// 	} testcase;
-// 	testcase testcases[] = {
-// 		{.name = "gain on filt"},
-// 	};
-
-// 	testcase *t = testcases;
-// 	for (int i = 0; t->name != NULL;)
-// 	{
-// 		t = &testcases[i];
-// 		player_dispatch(t->args);
-// 	}
-// }
 
 TestSuite(transitions, .init = init, .fini = fini);
 

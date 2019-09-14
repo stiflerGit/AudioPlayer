@@ -22,18 +22,32 @@
 
 #define TEST_RESULTS_DIR "/tmp/github.com/stiflerGit/AudioPlayer/test/player/"
 
+static void _mkdir(const char *dir)
+{
+	char tmp[256];
+	char *p = NULL;
+	size_t len;
+
+	snprintf(tmp, sizeof(tmp), "%s", dir);
+	len = strlen(tmp);
+	if (tmp[len - 1] == '/')
+		tmp[len - 1] = 0;
+	for (p = tmp + 1; *p; p++)
+		if (*p == '/')
+		{
+			*p = 0;
+			mkdir(tmp, S_IRWXU);
+			*p = '/';
+		}
+	mkdir(tmp, S_IRWXU);
+}
+
 static void init()
 {
 	struct stat st = {0};
-	int ret;
 	if (stat(TEST_RESULTS_DIR, &st) == -1)
 	{
-		ret = mkdir(TEST_RESULTS_DIR, 0700);
-		if (ret < 0)
-		{
-			perror("making test dir");
-			exit(EXIT_FAILURE);
-		}
+		_mkdir(TEST_RESULTS_DIR);
 	}
 }
 
@@ -423,31 +437,5 @@ Test(signal, band_gain)
 		signal_delete(source_signals[i]);
 		signal_delete(amplified_signals[i]);
 		signal_delete(isolated_signals[i]);
-	}
-}
-
-Test(signal, impulse_responce)
-{
-	float responce[2048];
-	printf("%d\n", sizeof(responce));
-	for (int i = 0; i < 1; i++)
-	{
-		responce[i] = 1.0f;
-	}
-	for (int i = 10; i < 2048; i++)
-	{
-		responce[i] = 0.0f;
-	}
-
-	equalizer_init(2048);
-	equalizer_set_gain(0, 15);
-	equalizer_set_gain(1, 15);
-	equalizer_set_gain(2, 15);
-	equalizer_set_gain(3, 15);
-	equalizer_equalize(responce, 2048);
-
-	for (int i = 0; i < 2048; i++)
-	{
-		printf("%f\n", responce[i]);
 	}
 }
