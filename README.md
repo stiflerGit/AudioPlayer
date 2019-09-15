@@ -29,6 +29,8 @@ The project depends on some libraries
 ## Additional 
 - criterion
 - gnuplot
+
+
 These are needed only if you are interested to compile tests.
 ## Documentation
 To produce the documentation starting from the code we need:
